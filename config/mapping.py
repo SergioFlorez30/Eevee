@@ -309,20 +309,20 @@ PLATFORM_CONFIG = {
 # TYPE OPTIONS: Valid values per (Platform, Level) combination
 # ============================================================================
 TYPE_OPTIONS = {
-    ("DV360", "Campaign"): ["Youtube", "Programmatic", "PMP Guaranteed", "PMP Non Guaranteed", "Pause Ads", "Sponsorship Ads", "Lineups", "YT Shorts", "Masthead"],
+    ("DV360", "Campaign"): ["DV360"],
     ("DV360", "Insertion Order"): ["Youtube", "Programmatic", "PMP Guaranteed", "PMP Non Guaranteed", "Pause Ads", "Sponsorship Ads", "Lineups", "YT Shorts", "Masthead"],
-    ("DV360", "Line Item"): ["Youtube", "Skip", "Non-Skip", "Bumper", "OX Display", "OX Video", "YT Shorts"],
+    ("DV360", "Line Item"): ["Skip", "Non-Skip", "Bumper", "OX Display", "OX Video", "YT Shorts"],
     ("DV360", "Ad Group"): ["Skip", "Non-Skip", "Bumper", "OX Display", "OX Video"],
     ("Meta", "Campaign"): ["Meta"],
-    ("Meta", "Ad Group"): ["Meta"],
+    ("Meta", "Ad Group"): ["NA"],
     ("TikTok", "Campaign"): ["TikTok", "TikTok Search", "TikTok Shop"],
     ("TikTok", "Ad Group"): ["Top View", "Top Feed", "TikTok Search", "TikTok Shop"],
     ("Pinterest", "Campaign"): ["Pinterest"],
-    ("Pinterest", "Ad Group"): ["Pinterest"],
+    ("Pinterest", "Ad Group"): ["NA"],
     ("Google Ads", "Campaign"): ["Google Ads", "Google Search"],
     ("Google Ads", "Ad Group"): ["Google Ads", "Google Search"],
     ("Amazon Prime", "Campaign"): ["Amazon Prime"],
-    ("Amazon Prime", "Ad Group"): ["Amazon Prime"],
+    ("Amazon Prime", "Ad Group"): ["NA"],
 }
 
 # ============================================================================
