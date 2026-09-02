@@ -60,6 +60,15 @@ BUDGET_TYPE_OPTIONS = {
 }
 
 # ============================================================================
+# IMP_STATUS OPTIONS: Valid values for IMP_STATUS field (all platforms)
+# ============================================================================
+IMP_STATUS_OPTIONS = [
+    "Implemented",
+    "Pending",
+    "Manual Imp.",
+]
+
+# ============================================================================
 # MANUAL FIELDS: User must select/enter these in Excel after download
 # ============================================================================
 # Fields common to all platforms

@@ -506,6 +506,12 @@ def write_excel(output_rows, errors):
             allow_blank=False
         )
         
+        imp_status_validation = DataValidation(
+            type="list",
+            formula1=f'"{",".join(IMP_STATUS_OPTIONS)}"',
+            allow_blank=True
+        )
+        
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             if field == "STATUS":
                 for row_idx in range(2, len(output_rows) + 2):
@@ -520,10 +526,15 @@ def write_excel(output_rows, errors):
                 for row_idx, row_data in enumerate(output_rows, start=2):
                     if row_data.get("PLATFORM") in ["Meta", "TikTok"]:
                         budget_type_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "IMP_STATUS":
+                # Add IMP_STATUS validation for all rows
+                for row_idx in range(2, len(output_rows) + 2):
+                    imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
         
         ws.add_data_validation(status_validation)
         ws.add_data_validation(pacing_validation)
         ws.add_data_validation(budget_type_validation)
+        ws.add_data_validation(imp_status_validation)
     
     # Error sheet (if errors exist)
     if errors:
