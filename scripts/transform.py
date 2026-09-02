@@ -363,8 +363,8 @@ def transform(cm_rows, filename):
             if field not in output_row:
                 output_row[field] = ""
         
-        # Add BID_VALUE and KPI_VALUE only for DV360
-        if platform == "DV360":
+        # Add BID_VALUE and KPI_VALUE only for DV360 (but NOT for Campaign level)
+        if platform == "DV360" and level != "Campaign":
             for field in MANUAL_FIELDS_DV360_ONLY:
                 if field not in output_row:
                     output_row[field] = ""
@@ -391,13 +391,16 @@ def transform(cm_rows, filename):
     # ========== VALIDATION ==========
     for row in output_rows:
         platform = row.get("PLATFORM", "")
+        level = row.get("LEVEL", "")
         
         # Fields that must always be present
         mandatory_fields = set(ALFRED_MANDATORY)
         
-        # PACING is mandatory only for DV360
-        if platform == "DV360":
+        # PACING is mandatory only for DV360 (but NOT for Campaign level)
+        if platform == "DV360" and level != "Campaign":
             mandatory_fields.add("PACING")
+        else:
+            mandatory_fields.discard("PACING")
         
         # BUDGET_TYPE is mandatory only for Meta, TikTok
         if platform in ["Meta", "TikTok"]:
@@ -405,14 +408,16 @@ def transform(cm_rows, filename):
         else:
             mandatory_fields.discard("BUDGET_TYPE")
         
-        # BID_VALUE is mandatory for DV360, TikTok
-        if platform in ["DV360", "TikTok"]:
+        # BID_VALUE is mandatory for DV360 (not Campaign), TikTok
+        if platform == "DV360" and level != "Campaign":
+            mandatory_fields.add("BID_VALUE")
+        elif platform == "TikTok":
             mandatory_fields.add("BID_VALUE")
         else:
             mandatory_fields.discard("BID_VALUE")
         
-        # KPI_VALUE is mandatory only for DV360
-        if platform == "DV360":
+        # KPI_VALUE is mandatory only for DV360 (not Campaign)
+        if platform == "DV360" and level != "Campaign":
             mandatory_fields.add("KPI_VALUE")
         else:
             mandatory_fields.discard("KPI_VALUE")
@@ -456,20 +461,21 @@ def write_excel(output_rows, errors):
     # Write data rows
     for row_idx, row_data in enumerate(output_rows, start=2):
         platform = row_data.get("PLATFORM", "")
+        level = row_data.get("LEVEL", "")
         
         # Determine which fields should be highlighted for this row's platform
         manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
         
-        # DV360: BID_VALUE and KPI_VALUE
-        if platform == "DV360":
+        # DV360: BID_VALUE and KPI_VALUE (but NOT for Campaign level)
+        if platform == "DV360" and level != "Campaign":
             manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
         
         # TikTok: Only BID_VALUE (not KPI_VALUE)
         if platform == "TikTok":
             manual_fields_for_row.update(MANUAL_FIELDS_BID_VALUE)
         
-        # PACING is manual only for DV360
-        if platform == "DV360":
+        # PACING is manual only for DV360 (but NOT for Campaign level)
+        if platform == "DV360" and level != "Campaign":
             manual_fields_for_row.add("PACING")
         
         # BUDGET_TYPE is manual only for Meta, TikTok
@@ -517,9 +523,9 @@ def write_excel(output_rows, errors):
                 for row_idx in range(2, len(output_rows) + 2):
                     status_validation.add(ws.cell(row=row_idx, column=col_idx))
             elif field == "PACING":
-                # Add PACING validation only for DV360 rows
+                # Add PACING validation only for DV360 rows (but NOT for Campaign level)
                 for row_idx, row_data in enumerate(output_rows, start=2):
-                    if row_data.get("PLATFORM") == "DV360":
+                    if row_data.get("PLATFORM") == "DV360" and row_data.get("LEVEL") != "Campaign":
                         pacing_validation.add(ws.cell(row=row_idx, column=col_idx))
             elif field == "BUDGET_TYPE":
                 # Add BUDGET_TYPE validation only for Meta, TikTok rows
