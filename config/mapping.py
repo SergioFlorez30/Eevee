@@ -15,32 +15,83 @@ DIRECT_MAPPING = {
 }
 
 # ============================================================================
-# FIXED VALUES: Fields that always output the same constant
+# FIXED VALUES: Fields that always output the same constant (all platforms)
 # ============================================================================
 FIXED_VALUES = {
     "BUY_TYPE": "Auction",
     "IRA_VERSION": "V1",
     "REGION": "National",
-    "PACING": "Daily_Even",
     "AUDIENCE": "Demo",
+}
+
+# ============================================================================
+# PLATFORM-SPECIFIC FIXED VALUES
+# ============================================================================
+PLATFORM_SPECIFIC_FIXED_VALUES = {
+    "DV360": {
+        "PACING": "Daily_Even",
+    },
+}
+
+# ============================================================================
+# PACING OPTIONS: Valid values for PACING field (DV360 only)
+# ============================================================================
+PACING_OPTIONS = {
+    "DV360": [
+        "Flight_Ahead",
+        "Flight_Even",
+        "Daily_Asap",
+        "Daily_Even",
+    ],
+}
+
+# ============================================================================
+# BUDGET_TYPE OPTIONS: Valid values for BUDGET_TYPE field (Meta, TikTok only)
+# ============================================================================
+BUDGET_TYPE_OPTIONS = {
+    "Meta": [
+        "Standard",
+        "Advantage",
+    ],
+    "TikTok": [
+        "Standard",
+        "Advantage",
+    ],
 }
 
 # ============================================================================
 # MANUAL FIELDS: User must select/enter these in Excel after download
 # ============================================================================
-MANUAL_FIELDS = [
+# Fields common to all platforms
+MANUAL_FIELDS_COMMON = [
     "TYPE",
     "CAMPAIGN_GOAL",
     "PO",
     "BROADCAST",
     "FREQUENCY",
-    "BID_VALUE",
-    "KPI_VALUE",
     "STATUS",
     "IMP_STATUS",
-    "BUDGET_TYPE",
     "BID_TYPE_OPTIMIZATION_TYPE",
 ]
+
+# Fields only for DV360
+MANUAL_FIELDS_DV360_ONLY = [
+    "BID_VALUE",
+    "KPI_VALUE",
+]
+
+# Fields only for DV360 and TikTok
+MANUAL_FIELDS_BID_VALUE = [
+    "BID_VALUE",
+]
+
+# Fields only for Meta, TikTok
+MANUAL_FIELDS_BUDGET_TYPE = [
+    "BUDGET_TYPE",
+]
+
+# All manual fields (for backwards compatibility)
+MANUAL_FIELDS = MANUAL_FIELDS_COMMON + MANUAL_FIELDS_DV360_ONLY + MANUAL_FIELDS_BID_VALUE + MANUAL_FIELDS_BUDGET_TYPE
 
 # ============================================================================
 # EMPTY FIELDS: Alfred accepts these as empty
@@ -167,7 +218,6 @@ ALFRED_MANDATORY = [
     "PRICING_MODEL",
     "BUY_TYPE",
     "REGION",
-    "PACING",
     "AUDIENCE",
 ]
 
@@ -274,19 +324,68 @@ IMP_STATUS_OPTIONS = ["Implemented", "Pending", "Manual Imp."]
 BUDGET_TYPE_OPTIONS = ["Standard", "Advantage"]
 
 # ============================================================================
-# BID TYPE OPTIMIZATION OPTIONS: By (Platform, Category)
+# BID TYPE OPTIMIZATION OPTIONS: By (Platform, Campaign Goal / Type)
+# Exact values from ALFRED spec - case sensitive
 # ============================================================================
 BID_TYPE_OPTIONS = {
-    ("Meta", "Video Views"): ["Highest Volume", "Lowest Cost"],
-    ("Meta", "Site Traffic"): ["Lowest Cost", "Highest Priority"],
-    ("Meta", "Reach"): ["Lowest Cost", "Highest Reach"],
-    ("DV360", "Youtube"): ["CPC", "CPV", "CPM"],
-    ("DV360", "Non_Skip"): ["CPV", "CPM"],
-    ("DV360", "Skip"): ["CPV", "CPM"],
-    ("DV360", "PMP_Non_Guaranteed"): ["CPM", "CPC"],
-    ("DV360", "Bumper"): ["CPM"],
-    ("TikTok", "Video Views"): ["View Duration", "Lowest Cost"],
-    ("TikTok", "Reach"): ["Reach", "Lowest Cost"],
+    ("Meta", "Video Views"): [
+        "Maximize ThruPlay views",
+        "Maximize 2-second continuous video plays",
+    ],
+    ("Meta", "Site Traffic"): [
+        "Maximize number of impressions",
+        "Maximize number of link clicks",
+        "Maximize daily unique reach",
+        "Maximize number of landing page views",
+        "Maximize number of conversations",
+    ],
+    ("Meta", "Reach"): [
+        "Maximize reach of ads",
+        "Maximize number of impressions",
+        "Maximize ThruPlay views",
+        "Maximize 2-second continuous video plays",
+        "Maximize ad recall lift",
+    ],
+    ("DV360", "Youtube"): [
+        "Control bid and budget at the line item level",
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+        "Maximize custom value / cost",
+        "Maximize reach",
+    ],
+    ("DV360", "Non_Skip"): [
+        "Fixed",
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+    ],
+    ("DV360", "Skip"): [
+        "Fixed",
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+    ],
+    ("DV360", "PMP_Non_Guaranteed"): [
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+        "Maximize custom value/cost",
+        "Maximize reach",
+    ],
+    ("DV360", "Bumper"): [
+        "Fixed",
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+    ],
+    ("TikTok", "Video Views"): [
+        "6-second views (Focused view)",
+        "15-second views (Focused view)",
+    ],
+    ("TikTok", "Reach"): [
+        "Reach",
+    ],
 }
 
 ALL_BID_TYPE_OPTIONS = list(set(

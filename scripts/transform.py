@@ -301,9 +301,14 @@ def transform(cm_rows, filename):
         for cm_field, alfred_field in DIRECT_MAPPING.items():
             output_row[alfred_field] = original_row.get(cm_field, "")
         
-        # Apply FIXED_VALUES
+        # Apply FIXED_VALUES (all platforms)
         for field, value in FIXED_VALUES.items():
             output_row[field] = value
+        
+        # Apply PLATFORM_SPECIFIC_FIXED_VALUES (DV360 only for PACING)
+        if platform in PLATFORM_SPECIFIC_FIXED_VALUES:
+            for field, value in PLATFORM_SPECIFIC_FIXED_VALUES[platform].items():
+                output_row[field] = value
         
         # Parse dates
         start_day, start_month, start_year = parse_date(original_row.get("Start Date", ""))
@@ -352,11 +357,29 @@ def transform(cm_rows, filename):
         # Set PRICE_TYPE
         output_row["PRICE_TYPE"] = PRICE_TYPE
         
-        # Set TYPE and other manual fields
+        # Set TYPE and other manual fields (conditional on platform)
         output_row["TYPE"] = ""  # User will fill in Excel
-        for field in MANUAL_FIELDS:
+        for field in MANUAL_FIELDS_COMMON:
             if field not in output_row:
                 output_row[field] = ""
+        
+        # Add BID_VALUE and KPI_VALUE only for DV360
+        if platform == "DV360":
+            for field in MANUAL_FIELDS_DV360_ONLY:
+                if field not in output_row:
+                    output_row[field] = ""
+        
+        # Add BID_VALUE only for TikTok (KPI_VALUE remains NULL)
+        if platform == "TikTok":
+            for field in MANUAL_FIELDS_BID_VALUE:
+                if field not in output_row:
+                    output_row[field] = ""
+        
+        # Add BUDGET_TYPE only for Meta, TikTok
+        if platform in ["Meta", "TikTok"]:
+            for field in MANUAL_FIELDS_BUDGET_TYPE:
+                if field not in output_row:
+                    output_row[field] = ""
         
         # Set empty fields
         for field in EMPTY_FIELDS:
@@ -367,7 +390,34 @@ def transform(cm_rows, filename):
     
     # ========== VALIDATION ==========
     for row in output_rows:
-        for field in ALFRED_MANDATORY:
+        platform = row.get("PLATFORM", "")
+        
+        # Fields that must always be present
+        mandatory_fields = set(ALFRED_MANDATORY)
+        
+        # PACING is mandatory only for DV360
+        if platform == "DV360":
+            mandatory_fields.add("PACING")
+        
+        # BUDGET_TYPE is mandatory only for Meta, TikTok
+        if platform in ["Meta", "TikTok"]:
+            mandatory_fields.add("BUDGET_TYPE")
+        else:
+            mandatory_fields.discard("BUDGET_TYPE")
+        
+        # BID_VALUE is mandatory for DV360, TikTok
+        if platform in ["DV360", "TikTok"]:
+            mandatory_fields.add("BID_VALUE")
+        else:
+            mandatory_fields.discard("BID_VALUE")
+        
+        # KPI_VALUE is mandatory only for DV360
+        if platform == "DV360":
+            mandatory_fields.add("KPI_VALUE")
+        else:
+            mandatory_fields.discard("KPI_VALUE")
+        
+        for field in mandatory_fields:
             value = row.get(field, "")
             if not value or (isinstance(value, (int, float)) and value == 0):
                 errors.append(f"Row {output_rows.index(row) + 1}: Missing mandatory field '{field}'")
@@ -405,12 +455,33 @@ def write_excel(output_rows, errors):
     
     # Write data rows
     for row_idx, row_data in enumerate(output_rows, start=2):
+        platform = row_data.get("PLATFORM", "")
+        
+        # Determine which fields should be highlighted for this row's platform
+        manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
+        
+        # DV360: BID_VALUE and KPI_VALUE
+        if platform == "DV360":
+            manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
+        
+        # TikTok: Only BID_VALUE (not KPI_VALUE)
+        if platform == "TikTok":
+            manual_fields_for_row.update(MANUAL_FIELDS_BID_VALUE)
+        
+        # PACING is manual only for DV360
+        if platform == "DV360":
+            manual_fields_for_row.add("PACING")
+        
+        # BUDGET_TYPE is manual only for Meta, TikTok
+        if platform in ["Meta", "TikTok"]:
+            manual_fields_for_row.update(MANUAL_FIELDS_BUDGET_TYPE)
+        
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             value = row_data.get(field, "")
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             
-            # Highlight manual fields
-            if field in MANUAL_FIELDS:
+            # Highlight manual fields (conditional on platform)
+            if field in manual_fields_for_row:
                 cell.fill = yellow_fill
             
             cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -423,12 +494,36 @@ def write_excel(output_rows, errors):
             allow_blank=False
         )
         
+        pacing_validation = DataValidation(
+            type="list",
+            formula1=f'"{",".join(PACING_OPTIONS.get("DV360", []))}"',
+            allow_blank=False
+        )
+        
+        budget_type_validation = DataValidation(
+            type="list",
+            formula1=f'"{",".join(BUDGET_TYPE_OPTIONS.get("Meta", []))}"',
+            allow_blank=False
+        )
+        
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             if field == "STATUS":
                 for row_idx in range(2, len(output_rows) + 2):
                     status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "PACING":
+                # Add PACING validation only for DV360 rows
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    if row_data.get("PLATFORM") == "DV360":
+                        pacing_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "BUDGET_TYPE":
+                # Add BUDGET_TYPE validation only for Meta, TikTok rows
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    if row_data.get("PLATFORM") in ["Meta", "TikTok"]:
+                        budget_type_validation.add(ws.cell(row=row_idx, column=col_idx))
         
         ws.add_data_validation(status_validation)
+        ws.add_data_validation(pacing_validation)
+        ws.add_data_validation(budget_type_validation)
     
     # Error sheet (if errors exist)
     if errors:
