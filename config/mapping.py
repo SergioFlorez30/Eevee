@@ -365,15 +365,9 @@ BID_TYPE_OPTIONS = {
     ],
     ("DV360", "Non_Skip"): [
         "Fixed",
-        "Maximize viewable impressions",
-        "Maximize viewable for at least 10 seconds",
-        "Maximize completed in-view and audible",
     ],
     ("DV360", "Skip"): [
         "Fixed",
-        "Maximize viewable impressions",
-        "Maximize viewable for at least 10 seconds",
-        "Maximize completed in-view and audible",
     ],
     ("DV360", "PMP_Non_Guaranteed"): [
         "Maximize viewable impressions",
@@ -384,9 +378,6 @@ BID_TYPE_OPTIONS = {
     ],
     ("DV360", "Bumper"): [
         "Fixed",
-        "Maximize viewable impressions",
-        "Maximize viewable for at least 10 seconds",
-        "Maximize completed in-view and audible",
     ],
     ("TikTok", "Video Views"): [
         "6-second views (Focused view)",
