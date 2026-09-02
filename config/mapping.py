@@ -320,7 +320,7 @@ TYPE_OPTIONS = {
     ("Pinterest", "Campaign"): ["Pinterest"],
     ("Pinterest", "Ad Group"): ["NA"],
     ("Google Ads", "Campaign"): ["Google Ads", "Google Search"],
-    ("Google Ads", "Ad Group"): ["Google Ads", "Google Search"],
+    ("Google Ads", "Ad Group"): ["Google Search", "NA"],
     ("Amazon Prime", "Campaign"): ["Amazon Prime"],
     ("Amazon Prime", "Ad Group"): ["NA"],
 }
