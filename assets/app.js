@@ -14,6 +14,11 @@ async function initPyodide() {
     try {
         setStatus("Cargando motor Python...", true);
 
+        // Wait for loadPyodide to be defined
+        while (typeof loadPyodide === 'undefined') {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         // Load Pyodide from CDN
         const pyodide = await loadPyodide({
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.5/full/",
@@ -22,11 +27,26 @@ async function initPyodide() {
         // Install micropip and openpyxl
         await pyodide.loadPackage("micropip");
         const micropip = pyodide.pyimport("micropip");
+        
+        console.log("Installing openpyxl...");
         await micropip.install("openpyxl");
+        console.log("openpyxl installed successfully");
 
         // Fetch Python modules from server
         const mappingCode = await fetch("config/mapping.py").then(r => r.text());
         const transformCode = await fetch("scripts/transform.py").then(r => r.text());
+
+        // Create directories in Pyodide filesystem
+        try {
+            pyodide.FS.mkdir("/config");
+        } catch (e) {
+            // Directory might already exist
+        }
+        try {
+            pyodide.FS.mkdir("/scripts");
+        } catch (e) {
+            // Directory might already exist
+        }
 
         // Write to Pyodide virtual filesystem
         pyodide.FS.writeFile("/config/__init__.py", "# Config module");
@@ -37,6 +57,8 @@ async function initPyodide() {
         // Add to path and import
         pyodide.runPython("import sys; sys.path.insert(0, '/')");
         pyodide.runPython("from scripts.transform import run");
+        
+        console.log("Pyodide initialized successfully");
 
         pyodideInstance = pyodide;
         setStatus("Motor Python cargado ✓", false);
@@ -45,7 +67,8 @@ async function initPyodide() {
         setTimeout(() => hideStatus(), 2000);
     } catch (error) {
         console.error("Pyodide init error:", error);
-        showFatalError(`<strong>Error al cargar:</strong> ${error.message}`);
+        console.error("Full error stack:", error.stack);
+        showFatalError(`<strong>Error al cargar:</strong> ${error.message}<br><small>Revisa la consola (F12) para más detalles</small>`);
     }
 }
 
@@ -82,7 +105,17 @@ function processCSV(csv_text, filename) {
     setStatus("Procesando transformación CM → ALFRED...", true);
 
     pyodideInstance.runPythonAsync(`
-        result = run('''${csv_text.replace(/'/g, "\\'")}''', '''${filename}''')
+try:
+    result = run('''${csv_text.replace(/'/g, "\\'")}''', '''${filename}''')
+except Exception as e:
+    result = {
+        "excel_bytes": None,
+        "errors": [f"Error: {str(e)}"],
+        "row_count": 0,
+        "has_errors": True,
+    }
+    import traceback
+    print(traceback.format_exc())
     `).then(() => {
         const result = pyodideInstance.globals.get("result");
         const dict = result.toJs();
@@ -103,6 +136,7 @@ function processCSV(csv_text, filename) {
         result.destroy();
     }).catch((error) => {
         hideStatus();
+        console.error("Pyodide error details:", error);
         showFatalError(`<strong>Error en transformación:</strong> ${error.message}`);
     });
 }
@@ -285,7 +319,10 @@ function formatSize(bytes) {
 // EVENT HANDLERS
 // ============================================================================
 document.addEventListener("DOMContentLoaded", function () {
-    initPyodide();
+    // Small delay to ensure Pyodide script is loaded
+    setTimeout(() => {
+        initPyodide();
+    }, 500);
 
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("file-input");
