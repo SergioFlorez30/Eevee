@@ -309,20 +309,20 @@ PLATFORM_CONFIG = {
 # TYPE OPTIONS: Valid values per (Platform, Level) combination
 # ============================================================================
 TYPE_OPTIONS = {
-    ("DV360", "Campaign"): ["Brand Awareness", "Reach", "Video Completion Rate"],
-    ("DV360", "Insertion Order"): ["IO Standard", "PMP Guaranteed", "PMP Non-Guaranteed"],
-    ("DV360", "Line Item"): ["YouTube Bumper", "YouTube Non-Skippable", "YouTube Skippable"],
-    ("DV360", "Ad Group"): ["Display", "Native", "Video"],
-    ("Meta", "Campaign"): ["Reach", "Impression", "Video Views"],
-    ("Meta", "Ad Group"): ["Link Click", "Conversion", "App Install"],
-    ("TikTok", "Campaign"): ["Video Views", "Reach", "Traffic"],
-    ("TikTok", "Ad Group"): ["Video Views", "Conversion"],
-    ("Pinterest", "Campaign"): ["Awareness", "Consideration", "Conversion"],
-    ("Pinterest", "Ad Group"): ["Promoted Pins", "Carousel Pins"],
-    ("Google Ads", "Campaign"): ["Search", "Display", "Shopping"],
-    ("Google Ads", "Ad Group"): ["Text Ads", "Responsive Display"],
-    ("Amazon Prime", "Campaign"): ["Sponsored Products", "Sponsored Brands"],
-    ("Amazon Prime", "Ad Group"): ["Products", "Keywords"],
+    ("DV360", "Campaign"): ["Youtube", "Programmatic", "PMP Guaranteed", "PMP Non Guaranteed", "Pause Ads", "Sponsorship Ads", "Lineups", "YT Shorts", "Masthead"],
+    ("DV360", "Insertion Order"): ["Youtube", "Programmatic", "PMP Guaranteed", "PMP Non Guaranteed", "Pause Ads", "Sponsorship Ads", "Lineups", "YT Shorts", "Masthead"],
+    ("DV360", "Line Item"): ["Youtube", "Skip", "Non-Skip", "Bumper", "OX Display", "OX Video", "YT Shorts"],
+    ("DV360", "Ad Group"): ["Skip", "Non-Skip", "Bumper", "OX Display", "OX Video"],
+    ("Meta", "Campaign"): ["Meta"],
+    ("Meta", "Ad Group"): ["Meta"],
+    ("TikTok", "Campaign"): ["TikTok", "TikTok Search", "TikTok Shop"],
+    ("TikTok", "Ad Group"): ["Top View", "Top Feed", "TikTok Search", "TikTok Shop"],
+    ("Pinterest", "Campaign"): ["Pinterest"],
+    ("Pinterest", "Ad Group"): ["Pinterest"],
+    ("Google Ads", "Campaign"): ["Google Ads", "Google Search"],
+    ("Google Ads", "Ad Group"): ["Google Ads", "Google Search"],
+    ("Amazon Prime", "Campaign"): ["Amazon Prime"],
+    ("Amazon Prime", "Ad Group"): ["Amazon Prime"],
 }
 
 # ============================================================================
