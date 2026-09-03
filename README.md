@@ -23,15 +23,15 @@
 **Eevee** es una herramienta web que convierte archivos CSV de Campaign Manager a formato XLSX compatible con ALFRED (el sistema de P&G que recibe los datos de medios).
 
 **Características:**
-- ✅ Conversión completa CM → ALFRED en el navegador (sin servidor backend)
-- ✅ Soporta 6 plataformas: DV360, Meta, TikTok, Pinterest, Google Ads, Amazon Prime
-- ✅ Validaciones automáticas contra especificaciones de ALFRED
-- ✅ Generación de XLSX con estilos, dropdowns y hoja de errores
-- ✅ Sin dependencias externas (Python en el navegador via Pyodide)
+-  Conversión completa CM → ALFRED en el navegador (sin servidor backend)
+-  Soporta 6 plataformas: DV360, Meta, TikTok, Pinterest, Google Ads, Amazon Prime
+-  Validaciones automáticas contra especificaciones de ALFRED
+-  Generación de XLSX con estilos, dropdowns y hoja de errores
+-  Sin dependencias externas (Python en el navegador via Pyodide)
 
 ---
 
-## 📁 Estructura de archivos
+##  Estructura de archivos
 
 ```
 Eevee/
@@ -232,7 +232,7 @@ Usuario recibe ALFRED.xlsx + Errores.xlsx (si hay)
 
 ---
 
-## 🌍 Plataformas soportadas
+## Plataformas soportadas
 
 | Plataforma | Niveles | ID Prefix | Plan Level | Validaciones especiales |
 |---|---|---|---|---|
@@ -245,7 +245,7 @@ Usuario recibe ALFRED.xlsx + Errores.xlsx (si hay)
 
 ---
 
-## 📥 Requisitos de entrada (CM CSV)
+## Requisitos de entrada (CM CSV)
 
 **OBLIGATORIOS (sin estos rompe el tool):**
 
@@ -269,68 +269,8 @@ Usuario recibe ALFRED.xlsx + Errores.xlsx (si hay)
 
 ---
 
-## 🌳 Git Workflow
+#
 
-**Branching model (3-branch):**
 
-```
-main
-  ├── Código probado, listo para producción
-  └── Tagged releases (v0.1-alpha, etc)
-
-develop
-  ├── Rama de integración
-  └── Agrupa features completadas
-
-feature/cm-to-alfred
-  ├── Desarrollo activo
-  ├── Testing local
-  └── Commits frecuentes
-```
-
-**Flujo típico:**
-```bash
-# En feature branch, comitea cambios
-git add .
-git commit -m "config: Update TYPE_OPTIONS"
-git push origin feature/cm-to-alfred
-
-# Cuando está listo, merge a develop
-git checkout develop
-git merge feature/cm-to-alfred
-git push origin develop
-
-# Cuando todo funciona, merge a main para release
-git checkout main
-git merge develop
-git tag v0.1-alpha
-git push origin main --tags
-```
-
-**Commits recientes (Sept 2-3):**
-- Corrección de TYPE_OPTIONS (todas 14 combinaciones Platform/Level)
-- Simplificación de BID_TYPE_OPTIONS para DV360 (Fixed only para Non_Skip, Skip, Bumper)
-- Exclusión de PACING, BID_VALUE, KPI_VALUE para DV360 Campaign
-
----
-
-## 🚀 Próximos pasos
-
-- [ ] Testing con CSV reales de todas las plataformas
-- [ ] Validación de STAGE_MAPPING con stakeholder (Performance/Data Gathering)
-- [ ] Definir flujo de entrada de usuarios para campos manuales
-- [ ] Merge feature → develop → main
-- [ ] Configurar GitHub Pages o Netlify para deployment
-- [ ] Documentación de usuario final
-
----
-
-## 📞 Contacto & Preguntas
-
-Para cambios en las reglas de transformación, editar `config/mapping.py`  
-Para cambios en lógica de validación, editar `scripts/transform.py`  
-Para cambios en UI, editar `index.html` y `assets/app.js`
-
----
 
 **v0.1-beta | Sept 2026 | P&G Media Technology**
