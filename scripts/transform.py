@@ -305,9 +305,9 @@ def transform(cm_rows, filename):
         for field, value in FIXED_VALUES.items():
             output_row[field] = value
         
-        # Apply PLATFORM_SPECIFIC_FIXED_VALUES (DV360 only for PACING)
-        if platform in PLATFORM_SPECIFIC_FIXED_VALUES:
-            for field, value in PLATFORM_SPECIFIC_FIXED_VALUES[platform].items():
+        # Apply PLATFORM_SPECIFIC_DEFAULTS (DV360 only for PACING initial value)
+        if platform in PLATFORM_SPECIFIC_DEFAULTS:
+            for field, value in PLATFORM_SPECIFIC_DEFAULTS[platform].items():
                 output_row[field] = value
         
         # Parse dates

@@ -25,11 +25,11 @@ FIXED_VALUES = {
 }
 
 # ============================================================================
-# PLATFORM-SPECIFIC FIXED VALUES
+# PLATFORM-SPECIFIC DEFAULTS: Initial values, user can edit in Excel via dropdown
 # ============================================================================
-PLATFORM_SPECIFIC_FIXED_VALUES = {
+PLATFORM_SPECIFIC_DEFAULTS = {
     "DV360": {
-        "PACING": "Daily_Even",
+        "PACING": "Daily_Even",  # Default, user can change via PACING_OPTIONS dropdown
     },
 }
 
