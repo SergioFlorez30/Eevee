@@ -8,8 +8,9 @@ try:
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
+    OPENPYXL_AVAILABLE = True
 except ImportError:
-    openpyxl = None
+    OPENPYXL_AVAILABLE = False
 
 # ============================================================================
 # DATE PARSING
@@ -600,7 +601,7 @@ def transform(cm_rows, filename):
 # ============================================================================
 def write_excel(output_rows, errors):
     """Generate XLSX file with openpyxl. Returns bytes."""
-    if not openpyxl:
+    if not OPENPYXL_AVAILABLE:
         return None
     
     wb = Workbook()
