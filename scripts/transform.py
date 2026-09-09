@@ -282,9 +282,80 @@ def generate_ids(processed_rows):
 # MAIN TRANSFORMATION
 # ============================================================================
 def parse_csv(csv_text):
-    """Parse CSV text into list of dicts."""
-    reader = csv.DictReader(csv_text.strip().split('\n'))
-    return list(reader)
+    """Parse CM CSV text into list of dicts.
+
+    Handles common CM export quirks:
+    - A decorative first row above the real header.
+    - Header casing differences (for example, "Plan level").
+    - Repeated header names (for example, "Publisher", "Target Audience").
+    """
+    if not csv_text or str(csv_text).strip() == "":
+        return []
+
+    header_aliases = {
+        "Plan level": "Plan Level",
+    }
+
+    expected_headers = {
+        "Platform",
+        "Line Item",
+        "Plan Level",
+        "Plan level",
+        "Start Date",
+        "End Date",
+        "Brand",
+        "Sub Brand",
+        "Total Budget",
+        "Billable Budget",
+        "Target Audience",
+        "Media Objective",
+        "Initiative",
+        "Cost Type",
+        "Publisher",
+    }
+
+    rows = list(csv.reader(csv_text.splitlines()))
+    # Keep rows that have at least one non-empty value.
+    rows = [r for r in rows if any(str(c).strip() for c in r)]
+    if not rows:
+        return []
+
+    # Detect the most likely header row by overlap with expected CM columns.
+    header_row_index = 0
+    best_score = -1
+    for idx, row in enumerate(rows):
+        score = sum(1 for cell in row if str(cell).strip() in expected_headers)
+        if score > best_score:
+            best_score = score
+            header_row_index = idx
+
+    raw_header = rows[header_row_index]
+    header = []
+    for cell in raw_header:
+        key = str(cell).strip()
+        key = header_aliases.get(key, key)
+        header.append(key)
+
+    parsed_rows = []
+    for raw_row in rows[header_row_index + 1:]:
+        # Align row length with header length.
+        if len(raw_row) < len(header):
+            raw_row = raw_row + [""] * (len(header) - len(raw_row))
+
+        row_dict = {}
+        for col_idx, key in enumerate(header):
+            if not key:
+                continue
+
+            value = str(raw_row[col_idx]).strip() if col_idx < len(raw_row) else ""
+
+            # For duplicate headers, keep the first non-empty value.
+            if key not in row_dict or row_dict[key] == "":
+                row_dict[key] = value
+
+        parsed_rows.append(row_dict)
+
+    return parsed_rows
 
 def transform(cm_rows, filename):
     """Transform CM rows to ALFRED format. Returns (output_rows[], errors[])."""
