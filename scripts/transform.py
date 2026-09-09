@@ -8,6 +8,7 @@ try:
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
@@ -718,7 +719,7 @@ def write_excel(output_rows, errors):
     
     # Set column widths
     for col_idx in range(1, len(ALFRED_COLUMN_ORDER) + 1):
-        ws.column_dimensions[chr(64 + col_idx)].width = 15
+        ws.column_dimensions[get_column_letter(col_idx)].width = 15
     
     # Save to bytes
     output = BytesIO()
