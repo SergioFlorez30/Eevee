@@ -1,4 +1,4 @@
-// assets/app.js - Eevee Frontend Logic
+
 
 let pyodideInstance = null;
 let excelBytesCache = null;
@@ -8,7 +8,7 @@ let csvText = null;
 let fileName = null;
 
 // ============================================================================
-// INITIALIZATION
+// INITIALIZATION  ^^ 
 // ============================================================================
 async function initPyodide() {
     try {

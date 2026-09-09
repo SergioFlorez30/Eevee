@@ -774,27 +774,86 @@ def write_excel(output_rows, errors):
     """Generate XLSX file with openpyxl. Returns bytes."""
     if not OPENPYXL_AVAILABLE:
         return None
-    
     wb = Workbook()
     ws = wb.active
     ws.title = "ALFRED"
-    
-    # Header styling
-    header_fill = PatternFill(start_color="00205B", end_color="00205B", fill_type="solid")
+
+    # Header styling by section
+    header_fill_default = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
+    header_fill_purple = PatternFill(start_color="7A287D", end_color="7A287D", fill_type="solid")
+    header_fill_blue = PatternFill(start_color="0D2D6C", end_color="0D2D6C", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF")
-    
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    # Row color rules for Campaign level by platform (apply through PLATFORM_ID).
+    campaign_platform_fill = {
+        "DV360": PatternFill(start_color="BAF7B7", end_color="BAF7B7", fill_type="solid"),
+        "Meta": PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid"),
+        "TikTok": PatternFill(start_color="EA9999", end_color="EA9999", fill_type="solid"),
+        "Pinterest": PatternFill(start_color="F7FCB2", end_color="F7FCB2", fill_type="solid"),
+        "Google Ads": PatternFill(start_color="F9CB9C", end_color="F9CB9C", fill_type="solid"),
+        "Amazon Prime": PatternFill(start_color="FFC2EB", end_color="FFC2EB", fill_type="solid"),
+    }
+
+    # STATUS color rules
+    status_fill_map = {
+        "OFF": PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid"),
+        "ON": PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid"),
+    }
+    status_font_map = {
+        "OFF": Font(name="Calibri", size=11, color="FFFFFF"),
+        "ON": Font(name="Calibri", size=11, color="000000"),
+    }
+
+    base_font = Font(name="Calibri", size=11)
+    bold_font = Font(name="Calibri", size=11, bold=True)
+    platform_id_col_idx = ALFRED_COLUMN_ORDER.index("PLATFORM_ID") + 1
+    status_col_idx = ALFRED_COLUMN_ORDER.index("STATUS") + 1
+
+    purple_header_fields = {
+        "BUDGET_TYPE",
+        "PACING",
+        "BID_TYPE_OPTIMIZATION_TYPE",
+        "BID_VALUE",
+        "KPI_VALUE",
+        "PLATFORM_ID",
+        "STATUS",
+    }
+    blue_header_fields = {
+        "IMP_STATUS",
+        "IMP_STATUS_DATE",
+        "QA_STATUS",
+        "QA_DATE",
+        "LIVE_CHECK",
+        "LIVE_CHECK_DATE",
+        "LIVE_CHECK_STATUS",
+        "INITIAL_CAMPAIGN_LAUNCH_DATE",
+        "NOTES_QA",
+        "NOTES_OPS",
+    }
+
     # Write headers
     for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
         cell = ws.cell(row=1, column=col_idx, value=field)
-        cell.fill = header_fill
+        if field in purple_header_fields:
+            cell.fill = header_fill_purple
+        elif field in blue_header_fields:
+            cell.fill = header_fill_blue
+        else:
+            cell.fill = header_fill_default
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
-    
+        cell.border = thin_border
+
     # Freeze header row
     ws.freeze_panes = "A2"
-    
-    # Yellow fill for manual fields
-    yellow_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+    ws.row_dimensions[1].height = 22
     
     # Write data rows
     for row_idx, row_data in enumerate(output_rows, start=2):
@@ -802,33 +861,37 @@ def write_excel(output_rows, errors):
         level = row_data.get("LEVEL", "")
         
         # Determine which fields should be highlighted for this row's platform
-        manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
-        
-        # DV360: BID_VALUE and KPI_VALUE (but NOT for Campaign level)
-        if platform == "DV360" and level != "Campaign":
-            manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
-        
-        # TikTok: Only BID_VALUE (not KPI_VALUE)
-        if platform == "TikTok":
-            manual_fields_for_row.update(MANUAL_FIELDS_BID_VALUE)
-        
-        # PACING is manual only for DV360 (but NOT for Campaign level)
-        if platform == "DV360" and level != "Campaign":
-            manual_fields_for_row.add("PACING")
-        
-        # BUDGET_TYPE is manual only for Meta, TikTok
-        if platform in ["Meta", "TikTok"]:
-            manual_fields_for_row.update(MANUAL_FIELDS_BUDGET_TYPE)
+        is_bold_row = level in ["Campaign", "Insertion Order"]
+        is_campaign = level == "Campaign"
+        campaign_fill = campaign_platform_fill.get(platform)
+        status_value = str(row_data.get("STATUS", "")).strip().upper()
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             value = row_data.get(field, "")
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            
-            # Highlight manual fields (conditional on platform)
-            if field in manual_fields_for_row:
-                cell.fill = yellow_fill
-            
+
+            if is_bold_row:
+                cell.font = bold_font
+            else:
+                cell.font = base_font
+
+            cell.border = thin_border
+
+            # Default data area background is white.
+            cell.fill = white_fill
+
+            # Campaign row color applies from first column through PLATFORM_ID only.
+            if is_campaign and campaign_fill and col_idx <= platform_id_col_idx:
+                cell.fill = campaign_fill
+
+            # STATUS color override applies to STATUS column regardless of row color.
+            if col_idx == status_col_idx and status_value in status_fill_map:
+                cell.fill = status_fill_map[status_value]
+                cell.font = status_font_map[status_value]
+
             cell.alignment = Alignment(horizontal="left", vertical="center")
+
+        ws.row_dimensions[row_idx].height = 20
     
     # Add data validation for manual fields (dropdowns)
     if output_rows:
