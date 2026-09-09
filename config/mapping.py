@@ -313,10 +313,6 @@ PLATFORM_ALIASES = {
     "instagram": "Meta",
     "messenger": "Meta",
     "facebook/instagram": "Meta",
-    "google": "DV360",
-    "google ads": "DV360",
-    "google search": "DV360",
-    "youtube": "DV360",
 }
 
 # ============================================================================
