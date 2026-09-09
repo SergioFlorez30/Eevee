@@ -74,7 +74,6 @@ IMP_STATUS_OPTIONS = [
 # ============================================================================
 # Fields common to all platforms
 MANUAL_FIELDS_COMMON = [
-    "TYPE",
     "CAMPAIGN_GOAL",
     "PO",
     "FREQUENCY",

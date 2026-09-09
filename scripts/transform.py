@@ -235,6 +235,47 @@ def extract_taxo(line_item, platform):
     
     return code_parts[-1]
 
+def infer_type(platform, level, effective_row):
+    """Infer TYPE from configured options and source row context."""
+    options = TYPE_OPTIONS.get((platform, level), [])
+    if not options:
+        return ""
+
+    if len(options) == 1:
+        return options[0]
+
+    # Use key source fields as matching context for multi-option cases.
+    context_values = [
+        effective_row.get("Platform", ""),
+        effective_row.get("Publisher", ""),
+        effective_row.get("Line Item", ""),
+        effective_row.get("Media SubType", ""),
+        effective_row.get("OU Media Sub-Type", ""),
+        effective_row.get("OU Media SubType", ""),
+        effective_row.get("Site", ""),
+    ]
+    context = " | ".join(str(v) for v in context_values if v).lower()
+
+    # Match explicit options first.
+    for option in options:
+        if option.lower() in context:
+            return option
+
+    # Normalize frequent naming variants.
+    aliases = {
+        "non skip": "Non-Skip",
+        "nonskip": "Non-Skip",
+        "non-skip": "Non-Skip",
+        "yt shorts": "YT Shorts",
+        "youtube": "Youtube",
+    }
+    for key, mapped in aliases.items():
+        if key in context and mapped in options:
+            return mapped
+
+    # No reliable inference found.
+    return ""
+
 # ============================================================================
 # ID GENERATION
 # ============================================================================
@@ -574,8 +615,10 @@ def transform(cm_rows, filename):
         # Set PRICE_TYPE
         output_row["PRICE_TYPE"] = PRICE_TYPE
         
-        # Set TYPE and other manual fields (conditional on platform)
-        output_row["TYPE"] = ""  # User will fill in Excel
+        # Set TYPE using configured business rules.
+        output_row["TYPE"] = infer_type(platform, level, original_row)
+
+        # Set other manual fields (conditional on platform)
         for field in MANUAL_FIELDS_COMMON:
             if field not in output_row:
                 output_row[field] = ""
