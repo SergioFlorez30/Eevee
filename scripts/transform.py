@@ -281,14 +281,11 @@ def _is_empty_or_na(value):
     return text == "" or text.upper() in ["N/A", "NA", "NULL", "NONE"]
 
 def resolve_pricing_model(source_row):
-    """Resolve PRICING_MODEL from CM, preferring Cost Type and falling back to Billing Model."""
+    """Resolve PRICING_MODEL from CM using only Cost Type."""
     cost_type = source_row.get("Cost Type", "")
-    billing_model = source_row.get("Billing Model", "")
 
     if not _is_empty_or_na(cost_type):
         return str(cost_type).strip()
-    if not _is_empty_or_na(billing_model):
-        return str(billing_model).strip()
     return ""
 
 def _norm_token(value):
