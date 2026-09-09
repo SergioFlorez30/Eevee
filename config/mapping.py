@@ -22,6 +22,7 @@ FIXED_VALUES = {
     "IRA_VERSION": "V1",
     "REGION": "National",
     "AUDIENCE": "Demo",
+    "BROADCAST": "NA",
 }
 
 # ============================================================================
@@ -76,7 +77,6 @@ MANUAL_FIELDS_COMMON = [
     "TYPE",
     "CAMPAIGN_GOAL",
     "PO",
-    "BROADCAST",
     "FREQUENCY",
     "STATUS",
     "IMP_STATUS",
