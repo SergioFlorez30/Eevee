@@ -340,7 +340,10 @@ TYPE_OPTIONS = {
 # ============================================================================
 STATUS_OPTIONS = ["On", "Off"]
 IMP_STATUS_OPTIONS = ["Implemented", "Pending", "Manual Imp."]
-BUDGET_TYPE_OPTIONS = ["Standard", "Advantage"]
+BUDGET_TYPE_OPTIONS = {
+    "Meta": ["Standard", "Advantage"],
+    "TikTok": ["Standard", "Advantage"],
+}
 
 # ============================================================================
 # BID TYPE OPTIMIZATION OPTIONS: By (Platform, Campaign Goal / Type)
