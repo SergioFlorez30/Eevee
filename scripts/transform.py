@@ -294,42 +294,55 @@ def resolve_pricing_model(source_row):
 def _norm_token(value):
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
+def normalize_bid_type_key(value):
+    """Map raw condition values to canonical BID_TYPE_OPTIONS keys."""
+    token = _norm_token(value)
+    aliases = {
+        "videoviews": "Video Views",
+        "sitetraffic": "Site Traffic",
+        "reach": "Reach",
+        "youtube": "Youtube",
+        "nonskip": "Non_Skip",
+        "skip": "Skip",
+        "pmpnonguaranteed": "PMP_Non_Guaranteed",
+        "bumper": "Bumper",
+    }
+    return aliases.get(token, "")
+
 def get_bid_type_options_for_row(row_data):
     """Return BID_TYPE_OPTIMIZATION_TYPE options for the row conditions."""
     platform = row_data.get("PLATFORM", "")
     if not platform:
         return []
 
-    candidate_values = [
-        row_data.get("TYPE", ""),
-        row_data.get("CAMPAIGN_GOAL", ""),
-        row_data.get("STAGE", ""),
-    ]
+    # Strict condition mapping from the agreed matrix:
+    # - DV360 keys come from TYPE-like values
+    # - Meta/TikTok keys come from CAMPAIGN_GOAL
+    candidate_values = []
+    if platform == "DV360":
+        candidate_values = [
+            row_data.get("TYPE", ""),
+            row_data.get("Media SubType", ""),
+            row_data.get("OU Media Sub-Type", ""),
+            row_data.get("OU Media SubType", ""),
+            row_data.get("Site", ""),
+        ]
+    elif platform in ["Meta", "TikTok"]:
+        candidate_values = [
+            row_data.get("CAMPAIGN_GOAL", ""),
+            row_data.get("TYPE", ""),
+        ]
 
-    candidate_tokens = {_norm_token(v) for v in candidate_values if str(v).strip()}
-    alias_tokens = {
-        "nonskip": "nonskip",
-        "nonskip": "nonskip",
-        "youtube": "youtube",
-        "pmpnonguaranteed": "pmpnonguaranteed",
-    }
-    candidate_tokens |= {alias_tokens.get(t, t) for t in list(candidate_tokens)}
-
-    for (key_platform, key_kind), options in BID_TYPE_OPTIONS.items():
-        if key_platform != platform:
+    for value in candidate_values:
+        canonical = normalize_bid_type_key(value)
+        if not canonical:
             continue
-        kind_token = alias_tokens.get(_norm_token(key_kind), _norm_token(key_kind))
-        if kind_token in candidate_tokens:
+        options = BID_TYPE_OPTIONS.get((platform, canonical), [])
+        if options:
             return options
 
-    # Fallback: if no precise condition was matched, expose all platform options.
-    merged = []
-    for (key_platform, _), options in BID_TYPE_OPTIONS.items():
-        if key_platform == platform:
-            for option in options:
-                if option not in merged:
-                    merged.append(option)
-    return merged
+    # No condition match -> no dropdown for this row.
+    return []
 
 # ============================================================================
 # ID GENERATION
