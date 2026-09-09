@@ -586,14 +586,6 @@ def transform(cm_rows, filename):
         else:
             mandatory_fields.discard("KPI_VALUE")
 
-        # In CM Meta exports, audience details can be absent even on valid rows.
-        # Do not block file generation; users can complete these manually in Excel.
-        gender_value = str(row.get("GENDER", "")).strip()
-        age_range_value = str(row.get("AGE_RANGE", "")).strip()
-        if platform == "Meta" and gender_value == "" and age_range_value == "":
-            mandatory_fields.discard("GENDER")
-            mandatory_fields.discard("AGE_RANGE")
-
         # Manual fields are expected to be filled by users in the generated Excel,
         # so they should not block output generation.
         manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
@@ -666,10 +658,6 @@ def write_excel(output_rows, errors):
         # BUDGET_TYPE is manual only for Meta, TikTok
         if platform in ["Meta", "TikTok"]:
             manual_fields_for_row.update(MANUAL_FIELDS_BUDGET_TYPE)
-
-        # Meta rows may require manual audience completion when CM doesn't provide it.
-        if platform == "Meta":
-            manual_fields_for_row.update(["GENDER", "AGE_RANGE"])
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             value = row_data.get(field, "")
