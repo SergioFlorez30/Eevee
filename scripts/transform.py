@@ -276,6 +276,61 @@ def infer_type(platform, level, effective_row):
     # No reliable inference found.
     return ""
 
+def _is_empty_or_na(value):
+    text = str(value or "").strip()
+    return text == "" or text.upper() in ["N/A", "NA", "NULL", "NONE"]
+
+def resolve_pricing_model(source_row):
+    """Resolve PRICING_MODEL from CM, preferring Cost Type and falling back to Billing Model."""
+    cost_type = source_row.get("Cost Type", "")
+    billing_model = source_row.get("Billing Model", "")
+
+    if not _is_empty_or_na(cost_type):
+        return str(cost_type).strip()
+    if not _is_empty_or_na(billing_model):
+        return str(billing_model).strip()
+    return ""
+
+def _norm_token(value):
+    return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
+
+def get_bid_type_options_for_row(row_data):
+    """Return BID_TYPE_OPTIMIZATION_TYPE options for the row conditions."""
+    platform = row_data.get("PLATFORM", "")
+    if not platform:
+        return []
+
+    candidate_values = [
+        row_data.get("TYPE", ""),
+        row_data.get("CAMPAIGN_GOAL", ""),
+        row_data.get("STAGE", ""),
+    ]
+
+    candidate_tokens = {_norm_token(v) for v in candidate_values if str(v).strip()}
+    alias_tokens = {
+        "nonskip": "nonskip",
+        "nonskip": "nonskip",
+        "youtube": "youtube",
+        "pmpnonguaranteed": "pmpnonguaranteed",
+    }
+    candidate_tokens |= {alias_tokens.get(t, t) for t in list(candidate_tokens)}
+
+    for (key_platform, key_kind), options in BID_TYPE_OPTIONS.items():
+        if key_platform != platform:
+            continue
+        kind_token = alias_tokens.get(_norm_token(key_kind), _norm_token(key_kind))
+        if kind_token in candidate_tokens:
+            return options
+
+    # Fallback: if no precise condition was matched, expose all platform options.
+    merged = []
+    for (key_platform, _), options in BID_TYPE_OPTIONS.items():
+        if key_platform == platform:
+            for option in options:
+                if option not in merged:
+                    merged.append(option)
+    return merged
+
 # ============================================================================
 # ID GENERATION
 # ============================================================================
@@ -555,6 +610,9 @@ def transform(cm_rows, filename):
         # Apply DIRECT_MAPPING
         for cm_field, alfred_field in DIRECT_MAPPING.items():
             output_row[alfred_field] = original_row.get(cm_field, "")
+
+        # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
+        output_row["PRICING_MODEL"] = resolve_pricing_model(original_row)
         
         # Apply FIXED_VALUES (all platforms)
         for field, value in FIXED_VALUES.items():
@@ -576,9 +634,9 @@ def transform(cm_rows, filename):
         output_row["END_MONTH"] = end_month or ""
         output_row["END_YEAR"] = end_year or ""
         
-        # Extract MONTH from Start Date
+        # MONTH keeps Alfred month code (SEP, OCT, ...), while START/END_MONTH stay numeric.
         if start_month:
-            output_row["MONTH"] = start_month
+            output_row["MONTH"] = MONTH_MAP.get(start_month, "")
         else:
             output_row["MONTH"] = ""
         
@@ -764,6 +822,27 @@ def write_excel(output_rows, errors):
     
     # Add data validation for manual fields (dropdowns)
     if output_rows:
+        list_ws = wb.create_sheet("_lists")
+        list_ws.sheet_state = "hidden"
+
+        list_cache = {}
+        next_list_col = 1
+
+        def list_range_formula(options):
+            nonlocal next_list_col
+            key = tuple(options)
+            if key in list_cache:
+                return list_cache[key]
+
+            col_letter = get_column_letter(next_list_col)
+            for row_idx, option in enumerate(options, start=1):
+                list_ws.cell(row=row_idx, column=next_list_col, value=option)
+
+            formula = f"'{list_ws.title}'!${col_letter}$1:${col_letter}${len(options)}"
+            list_cache[key] = formula
+            next_list_col += 1
+            return formula
+
         status_validation = DataValidation(
             type="list",
             formula1=f'"{",".join(STATUS_OPTIONS)}"',
@@ -787,6 +866,8 @@ def write_excel(output_rows, errors):
             formula1=f'"{",".join(IMP_STATUS_OPTIONS)}"',
             allow_blank=True
         )
+
+        bid_type_validations = []
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             if field == "STATUS":
@@ -806,11 +887,26 @@ def write_excel(output_rows, errors):
                 # Add IMP_STATUS validation for all rows
                 for row_idx in range(2, len(output_rows) + 2):
                     imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "BID_TYPE_OPTIMIZATION_TYPE":
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    options = get_bid_type_options_for_row(row_data)
+                    if not options:
+                        continue
+                    formula = list_range_formula(options)
+                    bid_validation = DataValidation(
+                        type="list",
+                        formula1=f"={formula}",
+                        allow_blank=True,
+                    )
+                    bid_validation.add(ws.cell(row=row_idx, column=col_idx))
+                    bid_type_validations.append(bid_validation)
         
         ws.add_data_validation(status_validation)
         ws.add_data_validation(pacing_validation)
         ws.add_data_validation(budget_type_validation)
         ws.add_data_validation(imp_status_validation)
+        for bid_validation in bid_type_validations:
+            ws.add_data_validation(bid_validation)
     
     # Error sheet (if errors exist)
     if errors:

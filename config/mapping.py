@@ -337,7 +337,7 @@ TYPE_OPTIONS = {
 # ============================================================================
 # STATUS & IMP_STATUS OPTIONS
 # ============================================================================
-STATUS_OPTIONS = ["On", "Off"]
+STATUS_OPTIONS = ["ON", "OFF"]
 IMP_STATUS_OPTIONS = ["Implemented", "Pending", "Manual Imp."]
 BUDGET_TYPE_OPTIONS = {
     "Meta": ["Standard", "Advantage"],
