@@ -433,7 +433,7 @@ def transform(cm_rows, filename):
                 _, code_parts = _split_line_item(line_item)
                 if code_parts and str(code_parts[-1]).strip().startswith("ADG"):
                     level = "Ad Group"
-                elif line_item:
+                elif code_parts:
                     level = "Campaign"
         else:
             level, taxo = determine_level_dv360(line_item)
@@ -496,8 +496,10 @@ def transform(cm_rows, filename):
             output_row["MONTH"] = ""
         
         # Clean currency
-        output_row["BUDGET"] = clean_currency(original_row.get("Billable Budget", "")) or ""
-        output_row["TOTAL_BUDGET"] = clean_currency(original_row.get("Total Budget", "")) or ""
+        budget_value = clean_currency(original_row.get("Billable Budget", ""))
+        total_budget_value = clean_currency(original_row.get("Total Budget", ""))
+        output_row["BUDGET"] = "" if budget_value is None else budget_value
+        output_row["TOTAL_BUDGET"] = "" if total_budget_value is None else total_budget_value
         
         # Extract country from filename
         output_row["COUNTRY"] = extract_country_from_filename(filename)
@@ -570,12 +572,6 @@ def transform(cm_rows, filename):
         else:
             mandatory_fields.discard("PACING")
         
-        # BUDGET_TYPE is mandatory only for Meta, TikTok
-        if platform in ["Meta", "TikTok"]:
-            mandatory_fields.add("BUDGET_TYPE")
-        else:
-            mandatory_fields.discard("BUDGET_TYPE")
-        
         # BID_VALUE is mandatory for DV360 (not Campaign), TikTok
         if platform == "DV360" and level != "Campaign":
             mandatory_fields.add("BID_VALUE")
@@ -589,10 +585,23 @@ def transform(cm_rows, filename):
             mandatory_fields.add("KPI_VALUE")
         else:
             mandatory_fields.discard("KPI_VALUE")
+
+        # Manual fields are expected to be filled by users in the generated Excel,
+        # so they should not block output generation.
+        manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
+        if platform == "DV360" and level != "Campaign":
+            manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
+            manual_fields_for_row.add("PACING")
+        if platform == "TikTok":
+            manual_fields_for_row.update(MANUAL_FIELDS_BID_VALUE)
+        if platform in ["Meta", "TikTok"]:
+            manual_fields_for_row.update(MANUAL_FIELDS_BUDGET_TYPE)
+
+        mandatory_fields = mandatory_fields - manual_fields_for_row
         
         for field in mandatory_fields:
             value = row.get(field, "")
-            if not value or (isinstance(value, (int, float)) and value == 0):
+            if value is None or str(value).strip() == "":
                 errors.append(f"Row {output_rows.index(row) + 1}: Missing mandatory field '{field}'")
     
     return output_rows, errors
