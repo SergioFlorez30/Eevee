@@ -306,6 +306,16 @@ PLATFORM_CONFIG = {
 }
 
 # ============================================================================
+# PLATFORM ALIASES: Normalize CM values to Alfred platform catalog
+# ============================================================================
+PLATFORM_ALIASES = {
+    "facebook": "Meta",
+    "instagram": "Meta",
+    "messenger": "Meta",
+    "facebook/instagram": "Meta",
+}
+
+# ============================================================================
 # TYPE OPTIONS: Valid values per (Platform, Level) combination
 # ============================================================================
 TYPE_OPTIONS = {

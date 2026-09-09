@@ -180,12 +180,50 @@ def determine_level_plan_level(plan_level_value):
         return None
     
     value_str = str(plan_level_value).lower().strip()
-    if value_str == "true":
+    # Per CM export behavior agreed with stakeholders:
+    # false -> Campaign, true -> Ad Group
+    if value_str == "false":
         return "Campaign"
-    elif value_str == "false":
+    elif value_str == "true":
+        return "Ad Group"
+    elif value_str == "campaign":
+        return "Campaign"
+    elif value_str in ["ad group", "adgroup"]:
         return "Ad Group"
     
     return None
+
+def normalize_platform(platform_value, publisher_value=""):
+    """Normalize CM platform values to Alfred catalog values."""
+    platform_raw = str(platform_value or "").strip()
+    publisher_raw = str(publisher_value or "").strip()
+
+    if platform_raw in PLATFORM_CONFIG:
+        return platform_raw
+
+    platform_alias = PLATFORM_ALIASES.get(platform_raw.lower(), "")
+    if platform_alias:
+        return platform_alias
+
+    if publisher_raw in PLATFORM_CONFIG:
+        return publisher_raw
+
+    publisher_alias = PLATFORM_ALIASES.get(publisher_raw.lower(), "")
+    if publisher_alias:
+        return publisher_alias
+
+    return platform_raw
+
+def build_lineage_keys(line_item):
+    """Build cumulative lineage keys from line item hierarchy for parent-child inheritance."""
+    if not line_item or str(line_item).strip() == "":
+        return []
+
+    parts = [p.strip() for p in str(line_item).split("->") if p.strip()]
+    keys = []
+    for i in range(1, len(parts) + 1):
+        keys.append(" -> ".join(parts[:i]))
+    return keys
 
 def extract_taxo(line_item, platform):
     """Extract taxonomy code (CAMPAIGN_TAXO) from Line Item."""
@@ -253,12 +291,62 @@ def transform(cm_rows, filename):
     output_rows = []
     errors = []
     processed_rows = []
+    inheritance_cache = {}
+    inheritable_fields = set(DIRECT_MAPPING.keys()) | {
+        "Platform",
+        "Publisher",
+        "Plan Level",
+        "Start Date",
+        "End Date",
+        "Billable Budget",
+        "Total Budget",
+        "Target Audience",
+        "Media Objective",
+        "Line Item",
+    }
     
     # ========== PASS 1: Determine levels and collect processable rows ==========
     for idx, row in enumerate(cm_rows):
-        platform = row.get("Platform", "").strip()
-        line_item = row.get("Line Item", "").strip()
-        plan_level = row.get("Plan Level", "").strip()
+        normalized_row = {
+            key: (str(value).strip() if value is not None else "")
+            for key, value in row.items()
+        }
+
+        line_item = normalized_row.get("Line Item", "")
+        lineage_keys = build_lineage_keys(line_item)
+
+        # Inherit missing values from ancestor rows in the same lineage.
+        effective_row = dict(normalized_row)
+        inherited_values = {}
+        for lineage_key in lineage_keys:
+            cached = inheritance_cache.get(lineage_key, {})
+            for field, value in cached.items():
+                if value:
+                    inherited_values[field] = value
+
+        for field in inheritable_fields:
+            if not effective_row.get(field, ""):
+                inherited_value = inherited_values.get(field, "")
+                if inherited_value:
+                    effective_row[field] = inherited_value
+
+        platform = normalize_platform(
+            effective_row.get("Platform", ""),
+            effective_row.get("Publisher", ""),
+        )
+        effective_row["Platform"] = platform
+
+        # Update inheritance cache for this lineage key so children can reuse parent values.
+        if lineage_keys:
+            current_key = lineage_keys[-1]
+            current_cache = dict(inheritance_cache.get(current_key, {}))
+            for field in inheritable_fields:
+                field_value = effective_row.get(field, "")
+                if field_value:
+                    current_cache[field] = field_value
+            inheritance_cache[current_key] = current_cache
+
+        plan_level = effective_row.get("Plan Level", "")
         
         if platform not in PLATFORM_CONFIG:
             continue
@@ -267,6 +355,13 @@ def transform(cm_rows, filename):
         
         if config.get("uses_plan_level"):
             level = determine_level_plan_level(plan_level)
+            if level is None:
+                # Fallback for non-DV360 when plan level is missing or non-standard.
+                _, code_parts = _split_line_item(line_item)
+                if code_parts and str(code_parts[-1]).strip().startswith("ADG"):
+                    level = "Ad Group"
+                elif line_item:
+                    level = "Campaign"
         else:
             level, taxo = determine_level_dv360(line_item)
         
@@ -280,7 +375,7 @@ def transform(cm_rows, filename):
             "PLATFORM": platform,
             "LEVEL": level,
             "_code_parts": code_parts,
-            "_original_row": row,
+            "_effective_row": effective_row,
             "_original_index": idx,
         }
         
@@ -291,7 +386,7 @@ def transform(cm_rows, filename):
     
     # ========== PASS 3: Build output rows ==========
     for original_index, row_data in processed_rows:
-        original_row = row_data["_original_row"]
+        original_row = row_data["_effective_row"]
         platform = row_data["PLATFORM"]
         level = row_data["LEVEL"]
         
