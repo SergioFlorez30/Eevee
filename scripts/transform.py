@@ -17,7 +17,7 @@ except ImportError:
 # DATE PARSING
 # ============================================================================
 def parse_date(value):
-    """Parse date in multiple formats. Returns (day, month_name, year) or (None, None, None)."""
+    """Parse date in multiple formats. Returns (day, month_number, year) or (None, None, None)."""
     if not value or str(value).strip() == "":
         return None, None, None
     
@@ -26,8 +26,7 @@ def parse_date(value):
     for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"]:
         try:
             dt = datetime.strptime(value, fmt)
-            month_name = MONTH_MAP.get(dt.month, "")
-            return dt.day, month_name, dt.year
+            return dt.day, dt.month, dt.year
         except ValueError:
             continue
     
@@ -243,6 +242,7 @@ def generate_ids(processed_rows):
     """Generate hierarchical IDs based on platform and code hierarchy."""
     ids = {}
     counter_map = {}  # (platform, parent_tuple) -> next_number
+    id_by_path = {}   # (platform, code_path_tuple) -> generated ID
     
     for original_index, row in processed_rows:
         platform = row.get("PLATFORM", "")
@@ -254,31 +254,77 @@ def generate_ids(processed_rows):
         config = PLATFORM_CONFIG.get(platform, {})
         prefix = config.get("prefix", "X")
         
-        # Convert code_parts to tuple for hashing
-        parent_tuple = tuple(code_parts[:-1]) if len(code_parts) > 1 else ()
-        key = (platform, parent_tuple)
-        
-        if key not in counter_map:
-            counter_map[key] = 1
-        
-        current_num = counter_map[key]
-        
+        code_path = tuple(code_parts)
+        parent_tuple = code_path[:-1]
+        counter_key = (platform, parent_tuple)
+
+        if counter_key not in counter_map:
+            counter_map[counter_key] = 1
+
+        current_num = counter_map[counter_key]
+
         if parent_tuple:
-            # Child segment: find parent ID and append
-            parent_key = (platform, parent_tuple[:-1] if len(parent_tuple) > 1 else ())
-            if parent_key in ids.values():
-                parent_id = [v for k, v in ids.items() if k[1] == parent_key][0]
+            parent_id = id_by_path.get((platform, parent_tuple), "")
+            if parent_id:
                 id_str = f"{parent_id}-{current_num}"
             else:
                 id_str = f"{prefix}{current_num}"
         else:
-            # Root segment
             id_str = f"{prefix}{current_num}"
-        
+
         ids[original_index] = id_str
-        counter_map[key] += 1
+        id_by_path[(platform, code_path)] = id_str
+        counter_map[counter_key] += 1
     
     return ids
+
+def reconcile_parent_budgets(output_rows):
+    """If immediate children have budget and parent campaign has 0/empty, set parent as children sum."""
+    for row in output_rows:
+        code_parts = row.get("__CODE_PARTS", [])
+        if isinstance(code_parts, list):
+            row["__CODE_PARTS"] = tuple(code_parts)
+
+    for parent_row in output_rows:
+        platform = parent_row.get("PLATFORM", "")
+        level = parent_row.get("LEVEL", "")
+        parent_code = parent_row.get("__CODE_PARTS", ())
+
+        if level != "Campaign" or not parent_code:
+            continue
+
+        immediate_children = [
+            child for child in output_rows
+            if child.get("PLATFORM", "") == platform
+            and len(child.get("__CODE_PARTS", ())) == len(parent_code) + 1
+            and child.get("__CODE_PARTS", ())[:len(parent_code)] == parent_code
+        ]
+
+        if not immediate_children:
+            continue
+
+        for field in ["BUDGET", "TOTAL_BUDGET"]:
+            child_values = []
+            for child in immediate_children:
+                value = child.get(field, "")
+                if value is None or str(value).strip() == "":
+                    continue
+                try:
+                    child_values.append(float(value))
+                except (ValueError, TypeError):
+                    continue
+
+            if not child_values:
+                continue
+
+            parent_value = parent_row.get(field, "")
+            try:
+                parent_num = float(parent_value)
+            except (ValueError, TypeError):
+                parent_num = None
+
+            if parent_num is None or parent_num == 0:
+                parent_row[field] = sum(child_values)
 
 # ============================================================================
 # MAIN TRANSFORMATION
@@ -515,6 +561,7 @@ def transform(cm_rows, filename):
         
         # Generate ID
         output_row["ID"] = id_map.get(original_index, "")
+        output_row["__CODE_PARTS"] = tuple(row_data.get("_code_parts", []))
         
         # Parse Target Audience
         target_audience = original_row.get("Target Audience", "")
@@ -557,6 +604,9 @@ def transform(cm_rows, filename):
                 output_row[field] = ""
         
         output_rows.append(output_row)
+
+    # Parent campaigns can inherit budget totals from immediate children when parent is 0/empty.
+    reconcile_parent_budgets(output_rows)
     
     # ========== VALIDATION ==========
     for row in output_rows:
