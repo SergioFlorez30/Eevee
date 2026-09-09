@@ -193,17 +193,13 @@ def determine_level_plan_level(plan_level_value):
     
     return None
 
-def normalize_platform(platform_value, publisher_value="", ou_media_sub_type_value=""):
+def normalize_platform(platform_value, publisher_value=""):
     """Normalize CM platform values to Alfred catalog values."""
     platform_raw = str(platform_value or "").strip()
     publisher_raw = str(publisher_value or "").strip()
-    ou_media_sub_type_raw = str(ou_media_sub_type_value or "").strip().lower()
 
     if platform_raw in PLATFORM_CONFIG:
         return platform_raw
-
-    if ou_media_sub_type_raw in ["dsp/direct", "dsp / direct", "dsp-direct"]:
-        return "DV360"
 
     platform_alias = PLATFORM_ALIASES.get(platform_raw.lower(), "")
     if platform_alias:
@@ -299,8 +295,6 @@ def transform(cm_rows, filename):
     inheritable_fields = set(DIRECT_MAPPING.keys()) | {
         "Platform",
         "Publisher",
-        "OU Media Sub-Type",
-        "OU Media SubType",
         "Plan Level",
         "Start Date",
         "End Date",
@@ -336,15 +330,9 @@ def transform(cm_rows, filename):
                 if inherited_value:
                     effective_row[field] = inherited_value
 
-        ou_media_sub_type = (
-            effective_row.get("OU Media Sub-Type", "")
-            or effective_row.get("OU Media SubType", "")
-        )
-
         platform = normalize_platform(
             effective_row.get("Platform", ""),
             effective_row.get("Publisher", ""),
-            ou_media_sub_type,
         )
         effective_row["Platform"] = platform
 
