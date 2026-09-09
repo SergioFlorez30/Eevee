@@ -5,7 +5,7 @@
 # DIRECT MAPPING: Fields that copy directly from CM to ALFRED
 # ============================================================================
 DIRECT_MAPPING = {
-    "Brand": "Brand",
+    "Brand": "BRAND",
     "Sub Brand": "SUB_BRAND",
     "Platform": "PLATFORM",
     "Initiative": "INITIATIVE",
