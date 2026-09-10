@@ -993,6 +993,7 @@ def write_excel(output_rows, errors):
             allow_blank=True
         )
 
+        type_validations = []
         bid_type_validations = []
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
@@ -1013,6 +1014,21 @@ def write_excel(output_rows, errors):
                 # Add IMP_STATUS validation for all rows
                 for row_idx in range(2, len(output_rows) + 2):
                     imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "TYPE":
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    platform = row_data.get("PLATFORM", "")
+                    level = row_data.get("LEVEL", "")
+                    type_options = TYPE_OPTIONS.get((platform, level), [])
+                    if not type_options:
+                        continue
+                    formula = list_range_formula(type_options)
+                    type_validation = DataValidation(
+                        type="list",
+                        formula1=f"={formula}",
+                        allow_blank=False,
+                    )
+                    type_validation.add(ws.cell(row=row_idx, column=col_idx))
+                    type_validations.append(type_validation)
             elif field == "BID_TYPE_OPTIMIZATION_TYPE":
                 for row_idx, row_data in enumerate(output_rows, start=2):
                     options = get_bid_type_options_for_row(row_data)
@@ -1031,6 +1047,8 @@ def write_excel(output_rows, errors):
         ws.add_data_validation(pacing_validation)
         ws.add_data_validation(budget_type_validation)
         ws.add_data_validation(imp_status_validation)
+        for type_validation in type_validations:
+            ws.add_data_validation(type_validation)
         for bid_validation in bid_type_validations:
             ws.add_data_validation(bid_validation)
     
