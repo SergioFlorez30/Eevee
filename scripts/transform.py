@@ -271,23 +271,47 @@ def infer_type(platform, level, effective_row):
         effective_row.get("Site", ""),
     ]
     context = " | ".join(str(v) for v in context_values if v).lower()
+    context_token = _norm_token(context)
 
     # Match explicit options first.
     for option in options:
         if option.lower() in context:
             return option
+        if _norm_token(option) and _norm_token(option) in context_token:
+            return option
 
-    # Normalize frequent naming variants.
+    # Normalize frequent naming variants for all platforms.
     aliases = {
-        "non skip": "Non-Skip",
         "nonskip": "Non-Skip",
-        "non-skip": "Non-Skip",
-        "yt shorts": "YT Shorts",
+        "nonskipvideo": "Non-Skip",
+        "skip": "Skip",
+        "bumper": "Bumper",
+        "oxdisplay": "OX Display",
+        "oxvideo": "OX Video",
+        "ytshorts": "YT Shorts",
         "youtube": "Youtube",
+        "programmatic": "Programmatic",
+        "pmpguaranteed": "PMP Guaranteed",
+        "pmpnonguaranteed": "PMP Non Guaranteed",
+        "lineups": "Lineups",
+        "masthead": "Masthead",
+        "pauseads": "Pause Ads",
+        "topview": "Top View",
+        "topfeed": "Top Feed",
+        "tiktoksearch": "TikTok Search",
+        "tiktokshop": "TikTok Shop",
+        "googlesearch": "Google Search",
+        "googleads": "Google Ads",
+        "amazonprime": "Amazon Prime",
+        "facebookinstagram": "Meta",
     }
     for key, mapped in aliases.items():
-        if key in context and mapped in options:
+        if key in context_token and mapped in options:
             return mapped
+
+    # Deterministic fallback for matrix options that include NA.
+    if "NA" in options:
+        return "NA"
 
     # No reliable inference found.
     return ""
@@ -824,6 +848,7 @@ def write_excel(output_rows, errors):
         "OFF": Font(name="Calibri", size=11, color="FFFFFF"),
         "ON": Font(name="Calibri", size=11, color="000000"),
     }
+    manual_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
 
     base_font = Font(name="Calibri", size=11)
     bold_font = Font(name="Calibri", size=11, bold=True)
@@ -873,8 +898,18 @@ def write_excel(output_rows, errors):
     for row_idx, row_data in enumerate(output_rows, start=2):
         platform = row_data.get("PLATFORM", "")
         level = row_data.get("LEVEL", "")
-        
-        # Determine which fields should be highlighted for this row's platform
+
+        # Manual fields are always yellow, with priority over row-level colors.
+        manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
+        if platform == "DV360" and level != "Campaign":
+            manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
+            manual_fields_for_row.add("PACING")
+        if platform == "TikTok":
+            manual_fields_for_row.update(MANUAL_FIELDS_BID_VALUE)
+        if platform in ["Meta", "TikTok"]:
+            manual_fields_for_row.update(MANUAL_FIELDS_BUDGET_TYPE)
+
+        # Determine row-level color logic.
         is_bold_row = level in ["Campaign", "Insertion Order"]
         is_campaign = level == "Campaign"
         campaign_fill = campaign_platform_fill.get(platform)
@@ -897,6 +932,10 @@ def write_excel(output_rows, errors):
             # Campaign row color applies from first column through PLATFORM_ID only.
             if is_campaign and campaign_fill and col_idx <= platform_id_col_idx:
                 cell.fill = campaign_fill
+
+            # Manual fields take precedence over platform row coloring.
+            if field in manual_fields_for_row:
+                cell.fill = manual_fill
 
             # STATUS color override applies to STATUS column regardless of row color.
             if col_idx == status_col_idx and status_value in status_fill_map:
