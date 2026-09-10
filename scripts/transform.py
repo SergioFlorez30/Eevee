@@ -194,6 +194,22 @@ def determine_level_plan_level(plan_level_value):
     
     return None
 
+def determine_level_two_tier(line_item):
+    """Determine level for non-DV360 platforms using parent-child hierarchy only.
+
+    These platforms are modeled with two levels:
+    - Campaign
+    - Ad Group
+    """
+    _, code_parts = _split_line_item(line_item)
+    if not code_parts:
+        return None
+
+    last_code = str(code_parts[-1]).strip().upper()
+    if last_code.startswith("ADG"):
+        return "Ad Group"
+    return "Campaign"
+
 def normalize_platform(platform_value, publisher_value=""):
     """Normalize CM platform values to Alfred catalog values."""
     platform_raw = str(platform_value or "").strip()
@@ -571,22 +587,14 @@ def transform(cm_rows, filename):
                     current_cache[field] = field_value
             inheritance_cache[current_key] = current_cache
 
-        plan_level = effective_row.get("Plan Level", "")
-        
         if platform not in PLATFORM_CONFIG:
             continue
         
         config = PLATFORM_CONFIG[platform]
         
         if config.get("uses_plan_level"):
-            level = determine_level_plan_level(plan_level)
-            if level is None:
-                # Fallback for non-DV360 when plan level is missing or non-standard.
-                _, code_parts = _split_line_item(line_item)
-                if code_parts and str(code_parts[-1]).strip().startswith("ADG"):
-                    level = "Ad Group"
-                elif code_parts:
-                    level = "Campaign"
+            # Do not rely on Plan Level for non-DV360 due CM inconsistency.
+            level = determine_level_two_tier(line_item)
         else:
             level, taxo = determine_level_dv360(line_item)
         
@@ -746,6 +754,12 @@ def transform(cm_rows, filename):
             mandatory_fields.add("KPI_VALUE")
         else:
             mandatory_fields.discard("KPI_VALUE")
+
+        # BUDGET_TYPE is mandatory only for Meta and TikTok.
+        if platform in ["Meta", "TikTok"]:
+            mandatory_fields.add("BUDGET_TYPE")
+        else:
+            mandatory_fields.discard("BUDGET_TYPE")
 
         # Manual fields are expected to be filled by users in the generated Excel,
         # so they should not block output generation.
