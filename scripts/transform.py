@@ -201,15 +201,12 @@ def determine_level_two_tier(line_item):
     - Campaign
     - Ad Group
     """
-    if not line_item or str(line_item).strip() == "":
+    _, code_parts = _split_line_item(line_item)
+    if not code_parts:
         return None
 
-    parts = [p.strip() for p in str(line_item).split("->") if p.strip()]
-    if not parts:
-        return None
-
-    last_segment = str(parts[-1]).strip().upper()
-    if last_segment.startswith("ADG"):
+    last_code = str(code_parts[-1]).strip().upper()
+    if last_code.startswith("ADG"):
         return "Ad Group"
     return "Campaign"
 
@@ -941,8 +938,7 @@ def write_excel(output_rows, errors):
 
         # Determine row-level color logic.
         is_bold_row = level in ["Campaign", "Insertion Order"]
-        # DV360 exports often omit explicit campaign nodes; use IO as visual campaign fallback.
-        is_campaign = level == "Campaign" or (platform == "DV360" and level == "Insertion Order")
+        is_campaign = level == "Campaign"
         campaign_fill = campaign_platform_fill.get(platform)
         status_value = str(row_data.get("STATUS", "")).strip().upper()
         
