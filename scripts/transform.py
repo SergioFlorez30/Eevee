@@ -210,10 +210,11 @@ def determine_level_two_tier(line_item):
         return "Ad Group"
     return "Campaign"
 
-def normalize_platform(platform_value, publisher_value=""):
+def normalize_platform(platform_value, publisher_value="", ou_planning_level_value=""):
     """Normalize CM platform values to Alfred catalog values."""
     platform_raw = str(platform_value or "").strip()
     publisher_raw = str(publisher_value or "").strip()
+    ou_planning_level_raw = str(ou_planning_level_value or "").strip()
 
     if platform_raw in PLATFORM_CONFIG:
         return platform_raw
@@ -228,6 +229,21 @@ def normalize_platform(platform_value, publisher_value=""):
     publisher_alias = PLATFORM_ALIASES.get(publisher_raw.lower(), "")
     if publisher_alias:
         return publisher_alias
+
+    # Fallback when Platform does not match: infer from OU Planning Level (root hierarchy signal).
+    token = _norm_token(ou_planning_level_raw)
+    if token == "googleads":
+        return "Google Ads"
+    if token in ["dv360", "dv360yt", "dv360youtube", "dv360programmatic"]:
+        return "DV360"
+    if token.startswith("amazon"):
+        return "Amazon Prime"
+    if token == "meta":
+        return "Meta"
+    if token == "pinterest":
+        return "Pinterest"
+    if token == "tiktok":
+        return "TikTok"
 
     return platform_raw
 
@@ -279,6 +295,15 @@ def infer_type(platform, level, effective_row):
             return option
         if _norm_token(option) and _norm_token(option) in context_token:
             return option
+
+    # DV360 default based on OU Planning Level when source labels are ambiguous.
+    if platform == "DV360":
+        ou_planning_level = str(effective_row.get("OU Planning Level", "")).strip()
+        ou_token = _norm_token(ou_planning_level)
+        if ou_token in ["dv360", "dv360yt", "dv360youtube"] and "Youtube" in options:
+            return "Youtube"
+        if ou_token == "dv360programmatic" and "Programmatic" in options:
+            return "Programmatic"
 
     # Normalize frequent naming variants for all platforms.
     aliases = {
@@ -560,6 +585,7 @@ def transform(cm_rows, filename):
     inheritable_fields = set(DIRECT_MAPPING.keys()) | {
         "Platform",
         "Publisher",
+        "OU Planning Level",
         "Plan Level",
         "Start Date",
         "End Date",
@@ -598,6 +624,7 @@ def transform(cm_rows, filename):
         platform = normalize_platform(
             effective_row.get("Platform", ""),
             effective_row.get("Publisher", ""),
+            effective_row.get("OU Planning Level", ""),
         )
         effective_row["Platform"] = platform
 
