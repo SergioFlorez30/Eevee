@@ -312,6 +312,7 @@ PLATFORM_ALIASES = {
     "instagram": "Meta",
     "messenger": "Meta",
     "facebook/instagram": "Meta",
+    "facebook/instagram/messenger": "Meta",
 }
 
 # ============================================================================
