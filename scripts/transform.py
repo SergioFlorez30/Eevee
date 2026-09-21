@@ -289,13 +289,6 @@ def infer_type(platform, level, effective_row):
     context = " | ".join(str(v) for v in context_values if v).lower()
     context_token = _norm_token(context)
 
-    # Match explicit options first.
-    for option in options:
-        if option.lower() in context:
-            return option
-        if _norm_token(option) and _norm_token(option) in context_token:
-            return option
-
     # DV360 default based on OU Planning Level when source labels are ambiguous.
     if platform == "DV360":
         ou_planning_level = str(effective_row.get("OU Planning Level", "")).strip()
@@ -334,6 +327,13 @@ def infer_type(platform, level, effective_row):
     for key, mapped in aliases:
         if key in context_token and mapped in options:
             return mapped
+
+    # Match explicit options by exact text (after specific aliases checked).
+    for option in options:
+        if option.lower() in context:
+            return option
+        if _norm_token(option) and _norm_token(option) in context_token:
+            return option
 
     # Deterministic fallback for matrix options that include NA.
     if "NA" in options:
