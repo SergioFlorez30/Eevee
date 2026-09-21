@@ -306,31 +306,32 @@ def infer_type(platform, level, effective_row):
             return "Programmatic"
 
     # Normalize frequent naming variants for all platforms.
-    aliases = {
-        "nonskip": "Non-Skip",
-        "nonskipvideo": "Non-Skip",
-        "skip": "Skip",
-        "bumper": "Bumper",
-        "oxdisplay": "OX Display",
-        "oxvideo": "OX Video",
-        "ytshorts": "YT Shorts",
-        "youtube": "Youtube",
-        "programmatic": "Programmatic",
-        "pmpguaranteed": "PMP Guaranteed",
-        "pmpnonguaranteed": "PMP Non Guaranteed",
-        "lineups": "Lineups",
-        "masthead": "Masthead",
-        "pauseads": "Pause Ads",
-        "topview": "Top View",
-        "topfeed": "Top Feed",
-        "tiktoksearch": "TikTok Search",
-        "tiktokshop": "TikTok Shop",
-        "googlesearch": "Google Search",
-        "googleads": "Google Ads",
-        "amazonprime": "Amazon Prime",
-        "facebookinstagram": "Meta",
-    }
-    for key, mapped in aliases.items():
+    # Order matters: more specific variants (nonskip) must be checked before generic ones (skip)
+    aliases = [
+        ("nonskipvideo", "Non-Skip"),
+        ("nonskip", "Non-Skip"),
+        ("pmpnonguaranteed", "PMP Non Guaranteed"),
+        ("pmpguaranteed", "PMP Guaranteed"),
+        ("oxdisplay", "OX Display"),
+        ("oxvideo", "OX Video"),
+        ("ytshorts", "YT Shorts"),
+        ("tiktoksearch", "TikTok Search"),
+        ("tiktokshop", "TikTok Shop"),
+        ("googlesearch", "Google Search"),
+        ("skip", "Skip"),
+        ("bumper", "Bumper"),
+        ("youtube", "Youtube"),
+        ("programmatic", "Programmatic"),
+        ("lineups", "Lineups"),
+        ("masthead", "Masthead"),
+        ("pauseads", "Pause Ads"),
+        ("topview", "Top View"),
+        ("topfeed", "Top Feed"),
+        ("googleads", "Google Ads"),
+        ("amazonprime", "Amazon Prime"),
+        ("facebookinstagram", "Meta"),
+    ]
+    for key, mapped in aliases:
         if key in context_token and mapped in options:
             return mapped
 
