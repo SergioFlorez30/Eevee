@@ -1028,12 +1028,6 @@ def write_excel(output_rows, errors):
             allow_blank=False
         )
 
-        # Create Named Ranges for each STAGE's CAMPAIGN_GOAL options
-        for stage, goals in CAMPAIGN_GOAL_BY_STAGE.items():
-            formula = list_range_formula(goals)
-            range_name = stage.replace(" ", "_") + "_Goals"
-            wb.defined_names[range_name] = formula
-
         # CAMPAIGN_GOAL: combine all goals from all stages
         all_goals = []
         for stage in sorted(CAMPAIGN_GOAL_BY_STAGE.keys()):
