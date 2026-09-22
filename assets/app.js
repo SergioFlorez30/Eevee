@@ -1,4 +1,4 @@
-
+// assets/app.js - Eevee Frontend Logic
 
 let pyodideInstance = null;
 let excelBytesCache = null;
@@ -8,7 +8,7 @@ let csvText = null;
 let fileName = null;
 
 // ============================================================================
-// INITIALIZATION  ^^ 
+// INITIALIZATION
 // ============================================================================
 async function initPyodide() {
     try {
@@ -104,13 +104,9 @@ function processCSV(csv_text, filename) {
 
     setStatus("Procesando transformación CM → ALFRED...", true);
 
-    // Pass CSV directly via Pyodide globals (safe, no string interpolation)
-    pyodideInstance.globals.set("csv_data_input", csv_text);
-    pyodideInstance.globals.set("filename_input", filename);
-    
     pyodideInstance.runPythonAsync(`
 try:
-    result = run(csv_data_input, filename_input)
+    result = run('''${csv_text.replace(/'/g, "\\'")}''', '''${filename}''')
 except Exception as e:
     result = {
         "excel_bytes": None,
@@ -153,12 +149,9 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
-        pyodideInstance.globals.set("csv_data_preview", csvText);
-        pyodideInstance.globals.set("filename_preview", fileName);
-        
         pyodideInstance.runPython(`
-cm_rows = parse_csv(csv_data_preview)
-output_rows, errors = transform(cm_rows, filename_preview)
+            cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
+            output_rows, errors = transform(cm_rows, '''${fileName}''')
         `);
 
         const output_rows = pyodideInstance.globals.get("output_rows").toJs();
