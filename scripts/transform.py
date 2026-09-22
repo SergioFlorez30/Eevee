@@ -387,7 +387,7 @@ def normalize_bid_type_key(value):
         "nonskip": "Non_Skip",
         "skip": "Skip",
         "pmpnonguaranteed": "PMP_Non_Guaranteed",
-        "pmpguaranteed": "PMP Guaranteed",
+        "pmpguaranteed": "PMP_Guaranteed",
         "programmatic": "Programmatic",
         "bumper": "Bumper",
     }
