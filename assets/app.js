@@ -150,9 +150,9 @@ function buildPreview() {
 
     try {
         pyodideInstance.runPython(`
-            cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
-            output_rows, errors = transform(cm_rows, '''${fileName}''')
-        `);
+cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
+output_rows, errors = transform(cm_rows, '''${fileName}''')
+`);
 
         const output_rows = pyodideInstance.globals.get("output_rows").toJs();
         const manual_fields = pyodideInstance.globals.get("MANUAL_FIELDS").toJs();
