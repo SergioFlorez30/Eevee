@@ -997,6 +997,12 @@ def write_excel(output_rows, errors):
             next_list_col += 1
             return formula
 
+        # Create Named Ranges for CAMPAIGN_GOAL by STAGE
+        for stage, goals in CAMPAIGN_GOAL_BY_STAGE.items():
+            range_name = stage.replace(" ", "_") + "_Goals"
+            formula = list_range_formula(goals)
+            wb.defined_names[range_name] = formula
+
         status_validation = DataValidation(
             type="list",
             formula1=f'"{",".join(STATUS_OPTIONS)}"',
@@ -1021,13 +1027,42 @@ def write_excel(output_rows, errors):
             allow_blank=True
         )
 
+        # STAGE dropdown (Awareness, Consideration, Conversion)
+        stage_validation = DataValidation(
+            type="list",
+            formula1=f'"{",".join(CAMPAIGN_GOAL_BY_STAGE.keys())}"',
+            allow_blank=False
+        )
+
         type_validations = []
         bid_type_validations = []
+        campaign_goal_validations = []
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             if field == "STATUS":
                 for row_idx in range(2, len(output_rows) + 2):
                     status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "STAGE":
+                for row_idx in range(2, len(output_rows) + 2):
+                    stage_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "CAMPAIGN_GOAL":
+                # CAMPAIGN_GOAL options depend on STAGE using INDIRECTO
+                # Create Named Ranges for each stage's goals
+                for stage, goals in CAMPAIGN_GOAL_BY_STAGE.items():
+                    range_name = stage.replace(" ", "_") + "_Goals"
+                    formula = list_range_formula(goals)
+                    # Using INDIRECTO to reference by STAGE value
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    stage_col_idx = ALFRED_COLUMN_ORDER.index("STAGE") + 1
+                    # Dynamic validation: if STAGE changes, CAMPAIGN_GOAL options change
+                    # Use INDIRECTO to create a dynamic reference based on STAGE column
+                    campaign_goal_validation = DataValidation(
+                        type="list",
+                        formula1=f"=INDIRECTO(SUBSTITUTE(INDIRECT(\"R{row_idx}C{stage_col_idx}\",FALSE),\" \",\"_\")&\"_Goals\")",
+                        allow_blank=True,
+                    )
+                    campaign_goal_validation.add(ws.cell(row=row_idx, column=col_idx))
+                    campaign_goal_validations.append(campaign_goal_validation)
             elif field == "PACING":
                 # Add PACING validation only for DV360 rows (but NOT for Campaign level)
                 for row_idx, row_data in enumerate(output_rows, start=2):
@@ -1072,6 +1107,7 @@ def write_excel(output_rows, errors):
                     bid_type_validations.append(bid_validation)
         
         ws.add_data_validation(status_validation)
+        ws.add_data_validation(stage_validation)
         ws.add_data_validation(pacing_validation)
         ws.add_data_validation(budget_type_validation)
         ws.add_data_validation(imp_status_validation)
@@ -1079,6 +1115,8 @@ def write_excel(output_rows, errors):
             ws.add_data_validation(type_validation)
         for bid_validation in bid_type_validations:
             ws.add_data_validation(bid_validation)
+        for campaign_goal_validation in campaign_goal_validations:
+            ws.add_data_validation(campaign_goal_validation)
     
     # Error sheet (if errors exist)
     if errors:

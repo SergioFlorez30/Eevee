@@ -241,6 +241,15 @@ STAGE_MAPPING = {
 }
 
 # ============================================================================
+# CAMPAIGN GOAL OPTIONS BY STAGE: Temporary mapping until official attributes available
+# ============================================================================
+CAMPAIGN_GOAL_BY_STAGE = {
+    "Awareness": ["Reach", "Target Frequency"],
+    "Consideration": ["Video Views", "Site Traffic", "Brand Consideration", "Branded Mission", "Target Frequency"],
+    "Conversion": ["Sales", "Leads"],
+}
+
+# ============================================================================
 # GENDER MAPPING: Extract from Target Audience prefix
 # ============================================================================
 GENDER_MAP = {
