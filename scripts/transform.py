@@ -346,12 +346,18 @@ def _is_empty_or_na(value):
     text = str(value or "").strip()
     return text == "" or text.upper() in ["N/A", "NA", "NULL", "NONE"]
 
-def resolve_pricing_model(source_row):
-    """Resolve PRICING_MODEL from CM using only Cost Type."""
+def resolve_pricing_model(source_row, inferred_type=""):
+    """Resolve PRICING_MODEL from CM Cost Type or infer from TYPE."""
     cost_type = source_row.get("Cost Type", "")
 
+    # If Cost Type is present and not N/A, use it
     if not _is_empty_or_na(cost_type):
         return str(cost_type).strip()
+    
+    # Otherwise, try to infer from TYPE
+    if inferred_type and inferred_type in PRICING_MODEL_BY_OBJECTIVE:
+        return PRICING_MODEL_BY_OBJECTIVE[inferred_type]
+    
     return ""
 
 def _norm_token(value):
@@ -681,8 +687,7 @@ def transform(cm_rows, filename):
         for cm_field, alfred_field in DIRECT_MAPPING.items():
             output_row[alfred_field] = original_row.get(cm_field, "")
 
-        # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
-        output_row["PRICING_MODEL"] = resolve_pricing_model(original_row)
+        # Defer PRICING_MODEL calculation until after TYPE is inferred
         
         # Apply FIXED_VALUES (all platforms)
         for field, value in FIXED_VALUES.items():
@@ -744,7 +749,12 @@ def transform(cm_rows, filename):
         output_row["PRICE_TYPE"] = PRICE_TYPE
         
         # Set TYPE using configured business rules.
-        output_row["TYPE"] = infer_type(platform, level, original_row)
+        inferred_type = infer_type(platform, level, original_row)
+        output_row["TYPE"] = inferred_type
+        
+        # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
+        # Use inferred TYPE as fallback for default pricing model
+        output_row["PRICING_MODEL"] = resolve_pricing_model(original_row, inferred_type)
 
         # Set other manual fields (conditional on platform)
         for field in MANUAL_FIELDS_COMMON:
@@ -1077,6 +1087,16 @@ def write_excel(output_rows, errors):
                 # Add IMP_STATUS validation for all rows
                 for row_idx in range(2, len(output_rows) + 2):
                     imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "PRICING_MODEL":
+                # Add PRICING_MODEL validation for all rows
+                pricing_model_validation = DataValidation(
+                    type="list",
+                    formula1=f'"{",".join(PRICING_MODEL_OPTIONS)}"',
+                    allow_blank=True
+                )
+                for row_idx in range(2, len(output_rows) + 2):
+                    pricing_model_validation.add(ws.cell(row=row_idx, column=col_idx))
+                ws.add_data_validation(pricing_model_validation)
             elif field == "TYPE":
                 for row_idx, row_data in enumerate(output_rows, start=2):
                     platform = row_data.get("PLATFORM", "")

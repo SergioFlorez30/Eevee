@@ -250,6 +250,47 @@ CAMPAIGN_GOAL_BY_STAGE = {
 }
 
 # ============================================================================
+# PRICING MODEL OPTIONS: Valid pricing models (dropdown values)
+# ============================================================================
+PRICING_MODEL_OPTIONS = ["CPM", "CPV", "CPC", "CPA", "CPL"]
+
+# ============================================================================
+# PRICING MODEL DEFAULTS: Maps objective (CAMPAIGN_GOAL or TYPE) to default pricing model
+# ============================================================================
+PRICING_MODEL_BY_OBJECTIVE = {
+    # CAMPAIGN_GOAL objectives (Meta, TikTok, Pinterest, Google Ads, Amazon Prime)
+    "Video Views": "CPV",
+    "Site Traffic": "CPM",
+    "Reach": "CPM",
+    "Target Frequency": "CPM",
+    "Brand Consideration": "CPM",
+    "Branded Mission": "CPM",
+    "Sales": "CPA",
+    "Leads": "CPA",
+    
+    # DV360 TYPE objectives
+    "Youtube": "CPM",
+    "Non-Skip": "CPM",
+    "Skip": "CPV",
+    "Bumper": "CPM",
+    "Programmatic": "CPM",
+    "PMP Guaranteed": "CPM",
+    "OX Display": "CPM",
+    "OX Video": "CPM",
+    "DV360": "CPM",
+    
+    # TikTok TYPE objectives
+    "TikTok": "CPM",
+    "TikTok Search": "CPM",
+    "TikTok Shop": "CPM",
+    "Top View": "CPM",
+    "Top Feed": "CPM",
+    
+    # Default fallback
+    "NA": "CPM",
+}
+
+# ============================================================================
 # GENDER MAPPING: Extract from Target Audience prefix
 # ============================================================================
 GENDER_MAP = {
