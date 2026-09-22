@@ -1174,11 +1174,25 @@ def write_excel(output_rows, errors):
                     type_validations.append(type_validation)
             elif field == "BID_TYPE_OPTIMIZATION_TYPE":
                 # Create dynamic validation that references Named Ranges based on Platform + CAMPAIGN_GOAL/TYPE
+                # Only add validation if that combination exists in BID_TYPE_OPTIONS
                 platform_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("PLATFORM") + 1)
                 campaign_goal_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("CAMPAIGN_GOAL") + 1)
                 type_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("TYPE") + 1)
                 
                 for row_idx, row_data in enumerate(output_rows, start=2):
+                    platform = row_data.get("PLATFORM", "")
+                    
+                    # Determine which key to use (TYPE for DV360, CAMPAIGN_GOAL for others)
+                    if platform == "DV360":
+                        key_value = row_data.get("TYPE", "")
+                    else:
+                        key_value = row_data.get("CAMPAIGN_GOAL", "")
+                    
+                    # Check if this combination exists in BID_TYPE_OPTIONS
+                    if not key_value or (platform, key_value) not in BID_TYPE_OPTIONS:
+                        # No mapping found - skip adding validation (leave cell empty without options)
+                        continue
+                    
                     # Build formula that dynamically constructs the named range name
                     # Formula: =INDIRECTO(Platform & "_" & SUBSTITUTE(IF(Platform="DV360",TYPE,CAMPAIGN_GOAL)," ","_"))
                     formula = f'=IFERROR(INDIRECTO(INDIRECT("{platform_col_letter}"&ROW())&"_"&SUBSTITUTE(SUBSTITUTE(IF(INDIRECT("{platform_col_letter}"&ROW())="DV360",INDIRECT("{type_col_letter}"&ROW()),INDIRECT("{campaign_goal_col_letter}"&ROW()))," ","_"),"/","_")),"")' 
