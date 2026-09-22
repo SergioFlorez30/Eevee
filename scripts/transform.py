@@ -860,20 +860,6 @@ def transform(cm_rows, filename):
     
     return output_rows, errors
 
-def build_bid_type_default_formula():
-    """Build dynamic formula for BID_TYPE_OPTIMIZATION_TYPE that extracts first option when mapping exists."""
-    from openpyxl.utils import get_column_letter
-    
-    platform_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("PLATFORM") + 1)
-    campaign_goal_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("CAMPAIGN_GOAL") + 1)
-    type_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("TYPE") + 1)
-    
-    # Formula: Extract first element from dynamic named range
-    # =IFERROR(INDEX(INDIRECTO(Platform&"_"&SUBSTITUTE(IF(Platform="DV360",TYPE,CAMPAIGN_GOAL)," ","_")),1),"")
-    full_formula = f'=IFERROR(INDEX(INDIRECTO(INDIRECT("{platform_col_letter}"&ROW())&"_"&SUBSTITUTE(SUBSTITUTE(IF(INDIRECT("{platform_col_letter}"&ROW())="DV360",INDIRECT("{type_col_letter}"&ROW()),INDIRECT("{campaign_goal_col_letter}"&ROW()))," ","_"),"/","_")),1),"")'
-    
-    return full_formula
-
 # ============================================================================
 # DYNAMIC PRICING MODEL FORMULA
 # ============================================================================
@@ -1019,10 +1005,8 @@ def write_excel(output_rows, errors):
         status_value = str(row_data.get("STATUS", "")).strip().upper()
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
-            # Skip PRICING_MODEL and BID_TYPE_OPTIMIZATION_TYPE (will be filled with formulas)
+            # Skip PRICING_MODEL here (will be filled with formula in data validation section)
             if field == "PRICING_MODEL":
-                value = ""
-            elif field == "BID_TYPE_OPTIMIZATION_TYPE":
                 value = ""
             else:
                 value = row_data.get(field, "")
@@ -1189,8 +1173,8 @@ def write_excel(output_rows, errors):
                     type_validation.add(ws.cell(row=row_idx, column=col_idx))
                     type_validations.append(type_validation)
             elif field == "BID_TYPE_OPTIMIZATION_TYPE":
-                # Create dynamic validation and formula that references Named Ranges based on Platform + CAMPAIGN_GOAL/TYPE
-                # Only add validation/formula if that combination exists in BID_TYPE_OPTIONS
+                # Create dynamic validation that references Named Ranges based on Platform + CAMPAIGN_GOAL/TYPE
+                # Only add validation if that combination exists in BID_TYPE_OPTIONS
                 platform_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("PLATFORM") + 1)
                 campaign_goal_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("CAMPAIGN_GOAL") + 1)
                 type_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("TYPE") + 1)
@@ -1206,14 +1190,11 @@ def write_excel(output_rows, errors):
                     
                     # Check if this combination exists in BID_TYPE_OPTIONS
                     if not key_value or (platform, key_value) not in BID_TYPE_OPTIONS:
-                        # No mapping found - leave cell empty without options
+                        # No mapping found - skip adding validation (leave cell empty without options)
                         continue
                     
-                    # Set dynamic formula that will extract first option and update when TYPE/CAMPAIGN_GOAL changes
-                    cell = ws.cell(row=row_idx, column=col_idx)
-                    cell.value = build_bid_type_default_formula()
-                    
-                    # Also add validation dropdown for manual selection
+                    # Build formula that dynamically constructs the named range name
+                    # Formula: =INDIRECTO(Platform & "_" & SUBSTITUTE(IF(Platform="DV360",TYPE,CAMPAIGN_GOAL)," ","_"))
                     formula = f'=IFERROR(INDIRECTO(INDIRECT("{platform_col_letter}"&ROW())&"_"&SUBSTITUTE(SUBSTITUTE(IF(INDIRECT("{platform_col_letter}"&ROW())="DV360",INDIRECT("{type_col_letter}"&ROW()),INDIRECT("{campaign_goal_col_letter}"&ROW()))," ","_"),"/","_")),"")' 
                     
                     bid_validation = DataValidation(
