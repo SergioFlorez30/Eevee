@@ -257,8 +257,23 @@ PRICING_MODEL_OPTIONS = ["CPM", "CPV", "CPC", "CPA", "CPL"]
 # ============================================================================
 # PRICING MODEL DEFAULTS: Maps objective (CAMPAIGN_GOAL or TYPE) to default pricing model
 # ============================================================================
-PRICING_MODEL_BY_OBJECTIVE = {
-    # CAMPAIGN_GOAL objectives (Meta, TikTok, Pinterest, Google Ads, Amazon Prime)
+# For DV360: PRICING_MODEL depends on TYPE
+PRICING_MODEL_BY_DV360_TYPE = {
+    "Youtube": "CPM",
+    "Non-Skip": "CPM",
+    "Skip": "CPV",
+    "Bumper": "CPM",
+    "Programmatic": "CPM",
+    "PMP Guaranteed": "CPM",
+    "PMP Non Guaranteed": "CPM",
+    "OX Display": "CPM",
+    "OX Video": "CPM",
+    "DV360": "CPM",
+    "NA": "CPM",
+}
+
+# For other platforms (Meta, TikTok, Pinterest, Google Ads, Amazon Prime): PRICING_MODEL depends on CAMPAIGN_GOAL
+PRICING_MODEL_BY_CAMPAIGN_GOAL = {
     "Video Views": "CPV",
     "Site Traffic": "CPM",
     "Reach": "CPM",
@@ -267,27 +282,6 @@ PRICING_MODEL_BY_OBJECTIVE = {
     "Branded Mission": "CPM",
     "Sales": "CPA",
     "Leads": "CPA",
-    
-    # DV360 TYPE objectives
-    "Youtube": "CPM",
-    "Non-Skip": "CPM",
-    "Skip": "CPV",
-    "Bumper": "CPM",
-    "Programmatic": "CPM",
-    "PMP Guaranteed": "CPM",
-    "OX Display": "CPM",
-    "OX Video": "CPM",
-    "DV360": "CPM",
-    
-    # TikTok TYPE objectives
-    "TikTok": "CPM",
-    "TikTok Search": "CPM",
-    "TikTok Shop": "CPM",
-    "Top View": "CPM",
-    "Top Feed": "CPM",
-    
-    # Default fallback
-    "NA": "CPM",
 }
 
 # ============================================================================

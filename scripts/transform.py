@@ -346,17 +346,30 @@ def _is_empty_or_na(value):
     text = str(value or "").strip()
     return text == "" or text.upper() in ["N/A", "NA", "NULL", "NONE"]
 
-def resolve_pricing_model(source_row, inferred_type=""):
-    """Resolve PRICING_MODEL from CM Cost Type or infer from TYPE."""
+def resolve_pricing_model(source_row, platform="", inferred_type="", stage=""):
+    """Resolve PRICING_MODEL from CM Cost Type or infer from TYPE (DV360) or STAGE->CAMPAIGN_GOAL (others)."""
     cost_type = source_row.get("Cost Type", "")
 
     # If Cost Type is present and not N/A, use it
     if not _is_empty_or_na(cost_type):
         return str(cost_type).strip()
     
-    # Otherwise, try to infer from TYPE
-    if inferred_type and inferred_type in PRICING_MODEL_BY_OBJECTIVE:
-        return PRICING_MODEL_BY_OBJECTIVE[inferred_type]
+    # Otherwise, infer based on platform
+    if platform == "DV360":
+        # DV360: use TYPE for default pricing model
+        if inferred_type and inferred_type in PRICING_MODEL_BY_DV360_TYPE:
+            return PRICING_MODEL_BY_DV360_TYPE[inferred_type]
+    else:
+        # Other platforms (Meta, TikTok, Pinterest, Google Ads, Amazon Prime): 
+        # Use default from first CAMPAIGN_GOAL option in this STAGE
+        if stage and stage in CAMPAIGN_GOAL_BY_STAGE:
+            goals = CAMPAIGN_GOAL_BY_STAGE[stage]
+            if goals:
+                first_goal = goals[0]
+                if first_goal in PRICING_MODEL_BY_CAMPAIGN_GOAL:
+                    return PRICING_MODEL_BY_CAMPAIGN_GOAL[first_goal]
+    
+    return ""
     
     return ""
 
@@ -743,7 +756,8 @@ def transform(cm_rows, filename):
         output_row["AGE_RANGE"] = extract_age_range(target_audience)
         
         # Normalize STAGE
-        output_row["STAGE"] = normalize_stage(original_row.get("Media Objective", ""))
+        normalized_stage = normalize_stage(original_row.get("Media Objective", ""))
+        output_row["STAGE"] = normalized_stage
         
         # Set PRICE_TYPE
         output_row["PRICE_TYPE"] = PRICE_TYPE
@@ -753,8 +767,9 @@ def transform(cm_rows, filename):
         output_row["TYPE"] = inferred_type
         
         # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
-        # Use inferred TYPE as fallback for default pricing model
-        output_row["PRICING_MODEL"] = resolve_pricing_model(original_row, inferred_type)
+        # For DV360: use TYPE for default pricing model
+        # For others: use default from first CAMPAIGN_GOAL option in this STAGE
+        output_row["PRICING_MODEL"] = resolve_pricing_model(original_row, platform, inferred_type, normalized_stage)
 
         # Set other manual fields (conditional on platform)
         for field in MANUAL_FIELDS_COMMON:
