@@ -1068,6 +1068,16 @@ def write_excel(output_rows, errors):
                 # Add IMP_STATUS validation for all rows
                 for row_idx in range(2, len(output_rows) + 2):
                     imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
+            elif field == "PRICING_MODEL":
+                # Add PRICING_MODEL dropdown validation for all rows
+                pricing_model_validation = DataValidation(
+                    type="list",
+                    formula1=f'"{",".join(PRICING_MODEL_OPTIONS)}"',
+                    allow_blank=True
+                )
+                for row_idx in range(2, len(output_rows) + 2):
+                    pricing_model_validation.add(ws.cell(row=row_idx, column=col_idx))
+                ws.add_data_validation(pricing_model_validation)
             elif field == "TYPE":
                 for row_idx, row_data in enumerate(output_rows, start=2):
                     platform = row_data.get("PLATFORM", "")

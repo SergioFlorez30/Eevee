@@ -355,6 +355,11 @@ BUDGET_TYPE_OPTIONS = {
 }
 
 # ============================================================================
+# PRICING_MODEL OPTIONS: Valid pricing models for dropdown
+# ============================================================================
+PRICING_MODEL_OPTIONS = ["CPM", "CPV", "CPC", "CPA", "CPL"]
+
+# ============================================================================
 # BID TYPE OPTIMIZATION OPTIONS: By (Platform, Campaign Goal / Type)
 # Exact values from ALFRED spec - case sensitive
 # ============================================================================
