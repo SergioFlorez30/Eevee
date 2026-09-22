@@ -1029,8 +1029,6 @@ def write_excel(output_rows, errors):
         )
 
         type_validations = []
-        bid_type_validations = []
-        campaign_goal_validations = []
         campaign_goal_validations = []
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
@@ -1094,18 +1092,15 @@ def write_excel(output_rows, errors):
                     type_validation.add(ws.cell(row=row_idx, column=col_idx))
                     type_validations.append(type_validation)
             elif field == "BID_TYPE_OPTIMIZATION_TYPE":
-                for row_idx, row_data in enumerate(output_rows, start=2):
-                    options = get_bid_type_options_for_row(row_data)
-                    if not options:
-                        continue
-                    formula = list_range_formula(options)
-                    bid_validation = DataValidation(
-                        type="list",
-                        formula1=f"={formula}",
-                        allow_blank=True,
-                    )
-                    bid_validation.add(ws.cell(row=row_idx, column=col_idx))
-                    bid_type_validations.append(bid_validation)
+                # Temporary solution: use all available BID_TYPE options without conditioning
+                bid_type_validation = DataValidation(
+                    type="list",
+                    formula1=f'"{",".join(ALL_BID_TYPE_OPTIONS)}"',
+                    allow_blank=True
+                )
+                for row_idx in range(2, len(output_rows) + 2):
+                    bid_type_validation.add(ws.cell(row=row_idx, column=col_idx))
+                ws.add_data_validation(bid_type_validation)
         
         ws.add_data_validation(status_validation)
         ws.add_data_validation(stage_validation)
@@ -1116,8 +1111,6 @@ def write_excel(output_rows, errors):
             ws.add_data_validation(campaign_goal_validation)
         for type_validation in type_validations:
             ws.add_data_validation(type_validation)
-        for bid_validation in bid_type_validations:
-            ws.add_data_validation(bid_validation)
     
     # Error sheet (if errors exist)
     if errors:
