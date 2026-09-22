@@ -104,14 +104,13 @@ function processCSV(csv_text, filename) {
 
     setStatus("Procesando transformación CM → ALFRED...", true);
 
-    // Pass CSV safely as JSON string to avoid indentation issues
-    const csvJsonString = JSON.stringify(csv_text);
+    // Pass CSV directly via Pyodide globals (safe, no string interpolation)
+    pyodideInstance.globals.set("csv_data_input", csv_text);
+    pyodideInstance.globals.set("filename_input", filename);
     
     pyodideInstance.runPythonAsync(`
-import json
 try:
-    csv_data = json.loads(${csvJsonString})
-    result = run(csv_data, '''${filename}''')
+    result = run(csv_data_input, filename_input)
 except Exception as e:
     result = {
         "excel_bytes": None,
@@ -154,15 +153,12 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
-        const csvJsonString = JSON.stringify(csvText);
-        const fileNameJsonString = JSON.stringify(fileName);
+        pyodideInstance.globals.set("csv_data_preview", csvText);
+        pyodideInstance.globals.set("filename_preview", fileName);
         
         pyodideInstance.runPython(`
-import json
-csv_data = json.loads(${csvJsonString})
-file_name = json.loads(${fileNameJsonString})
-cm_rows = parse_csv(csv_data)
-output_rows, errors = transform(cm_rows, file_name)
+cm_rows = parse_csv(csv_data_preview)
+output_rows, errors = transform(cm_rows, filename_preview)
         `);
 
         const output_rows = pyodideInstance.globals.get("output_rows").toJs();
