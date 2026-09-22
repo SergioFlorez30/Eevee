@@ -8,6 +8,7 @@ try:
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.worksheet.named_range import NamedRange
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
@@ -1067,7 +1068,8 @@ def write_excel(output_rows, errors):
         for stage, goals in CAMPAIGN_GOAL_BY_STAGE.items():
             range_name = stage.replace(" ", "_") + "_Goals"
             formula = list_range_formula(goals)
-            wb.defined_names[range_name] = formula
+            named_range = NamedRange(range_name, formula)
+            wb.defined_names.add(named_range)
 
         # Create Named Ranges for BID_TYPE_OPTIMIZATION_TYPE by (Platform, Goal/Type)
         for (platform, goal_or_type), options in BID_TYPE_OPTIONS.items():
@@ -1075,7 +1077,8 @@ def write_excel(output_rows, errors):
             clean_key = goal_or_type.replace(" ", "_").replace("/", "_")
             range_name = f"{platform}_{clean_key}"
             formula = list_range_formula(options)
-            wb.defined_names[range_name] = formula
+            named_range = NamedRange(range_name, formula)
+            wb.defined_names.add(named_range)
 
         status_validation = DataValidation(
             type="list",
