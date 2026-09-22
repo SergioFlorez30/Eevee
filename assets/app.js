@@ -148,56 +148,64 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
-        pyodideInstance.runPython(`cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
+        pyodideInstance.runPythonAsync(`cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
 output_rows, errors = transform(cm_rows, '''${fileName}''')
-`);
+`).then(() => {
+            const output_rows_obj = pyodideInstance.globals.get("output_rows");
+            if (!output_rows_obj) {
+                console.error("output_rows is undefined");
+                return;
+            }
+            
+            const output_rows = output_rows_obj.toJs();
+            const manual_fields = pyodideInstance.globals.get("MANUAL_FIELDS").toJs();
+            const alfred_column_order = pyodideInstance.globals.get("ALFRED_COLUMN_ORDER").toJs();
 
-        const output_rows = pyodideInstance.globals.get("output_rows").toJs();
-        const manual_fields = pyodideInstance.globals.get("MANUAL_FIELDS").toJs();
-        const alfred_column_order = pyodideInstance.globals.get("ALFRED_COLUMN_ORDER").toJs();
+            // Display preview
+            const table = document.getElementById("preview-table");
+            table.innerHTML = "";
 
-        // Display preview
-        const table = document.getElementById("preview-table");
-        table.innerHTML = "";
-
-        // Header
-        const headerRow = document.createElement("tr");
-        alfred_column_order.slice(0, 15).forEach((col) => {
-            const th = document.createElement("th");
-            th.textContent = col;
-            headerRow.appendChild(th);
-        });
-        table.appendChild(headerRow);
-
-        // Data (first 8 rows)
-        const previewRows = output_rows.slice(0, 8);
-        previewRows.forEach((row, idx) => {
-            const tr = document.createElement("tr");
+            // Header
+            const headerRow = document.createElement("tr");
             alfred_column_order.slice(0, 15).forEach((col) => {
-                const td = document.createElement("td");
-                const value = row.get ? row.get(col) : row[col] || "";
-
-                td.textContent = String(value).substring(0, 20);
-
-                // Highlight manual fields
-                if (manual_fields.includes(col)) {
-                    td.className = "manual-field";
-                } else {
-                    td.className = "auto-field";
-                }
-
-                tr.appendChild(td);
+                const th = document.createElement("th");
+                th.textContent = col;
+                headerRow.appendChild(th);
             });
-            table.appendChild(tr);
+            table.appendChild(headerRow);
+
+            // Data (first 8 rows)
+            const previewRows = output_rows.slice(0, 8);
+            previewRows.forEach((row, idx) => {
+                const tr = document.createElement("tr");
+                alfred_column_order.slice(0, 15).forEach((col) => {
+                    const td = document.createElement("td");
+                    const value = row.get ? row.get(col) : row[col] || "";
+
+                    td.textContent = String(value).substring(0, 20);
+
+                    // Highlight manual fields
+                    if (manual_fields.includes(col)) {
+                        td.className = "manual-field";
+                    } else {
+                        td.className = "auto-field";
+                    }
+
+                    tr.appendChild(td);
+                });
+                table.appendChild(tr);
+            });
+
+            document.getElementById("preview-section").style.display = "block";
+            document.getElementById("preview-metadata").textContent = `Mostrando ${previewRows.length} de ${currentRowCount} filas totales`;
+
+            // Cleanup
+            if (output_rows.destroy) output_rows.destroy();
+            if (manual_fields.destroy) manual_fields.destroy();
+            if (alfred_column_order.destroy) alfred_column_order.destroy();
+        }).catch((error) => {
+            console.error("buildPreview async error:", error);
         });
-
-        document.getElementById("preview-section").style.display = "block";
-        document.getElementById("preview-metadata").textContent = `Mostrando ${previewRows.length} de ${currentRowCount} filas totales`;
-
-        // Cleanup
-        if (output_rows.destroy) output_rows.destroy();
-        if (manual_fields.destroy) manual_fields.destroy();
-        if (alfred_column_order.destroy) alfred_column_order.destroy();
     } catch (error) {
         console.error("Preview build error:", error);
     }
