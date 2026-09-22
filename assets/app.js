@@ -104,8 +104,7 @@ function processCSV(csv_text, filename) {
 
     setStatus("Procesando transformación CM → ALFRED...", true);
 
-    pyodideInstance.runPythonAsync(`
-try:
+    pyodideInstance.runPythonAsync(`try:
     result = run('''${csv_text.replace(/'/g, "\\'")}''', '''${filename}''')
 except Exception as e:
     result = {
@@ -116,7 +115,7 @@ except Exception as e:
     }
     import traceback
     print(traceback.format_exc())
-    `).then(() => {
+`).then(() => {
         const result = pyodideInstance.globals.get("result");
         const dict = result.toJs();
 
@@ -149,8 +148,7 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
-        pyodideInstance.runPython(`
-cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
+        pyodideInstance.runPython(`cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
 output_rows, errors = transform(cm_rows, '''${fileName}''')
 `);
 
