@@ -778,6 +778,20 @@ def transform(cm_rows, filename):
             if field not in output_row:
                 output_row[field] = ""
         
+        # Set default BID_TYPE_OPTIMIZATION_TYPE as first option if mapping exists
+        if output_row.get("BID_TYPE_OPTIMIZATION_TYPE", "") == "":
+            # Determine which key to use (TYPE for DV360, CAMPAIGN_GOAL for others)
+            if platform == "DV360":
+                key_value = output_row.get("TYPE", "")
+            else:
+                key_value = output_row.get("CAMPAIGN_GOAL", "")
+            
+            # If mapping exists, use first option as default
+            if key_value and (platform, key_value) in BID_TYPE_OPTIONS:
+                options = BID_TYPE_OPTIONS[(platform, key_value)]
+                if options:
+                    output_row["BID_TYPE_OPTIMIZATION_TYPE"] = options[0]
+        
         # Add BID_VALUE and KPI_VALUE only for DV360 (but NOT for Campaign level)
         if platform == "DV360" and level != "Campaign":
             for field in MANUAL_FIELDS_DV360_ONLY:
