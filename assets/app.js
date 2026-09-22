@@ -57,6 +57,7 @@ async function initPyodide() {
         // Add to path and import
         pyodide.runPython("import sys; sys.path.insert(0, '/')");
         pyodide.runPython("from scripts.transform import run, parse_csv, transform");
+        pyodide.runPython("from config.mapping import MANUAL_FIELDS, ALFRED_COLUMN_ORDER");
         
         console.log("Pyodide initialized successfully");
 
@@ -148,7 +149,8 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
-        pyodideInstance.runPythonAsync(`cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
+        pyodideInstance.runPythonAsync(`from config.mapping import MANUAL_FIELDS, ALFRED_COLUMN_ORDER
+cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
 output_rows, errors = transform(cm_rows, '''${fileName}''')
 `).then(() => {
             const output_rows_obj = pyodideInstance.globals.get("output_rows");
@@ -158,8 +160,16 @@ output_rows, errors = transform(cm_rows, '''${fileName}''')
             }
             
             const output_rows = output_rows_obj.toJs();
-            const manual_fields = pyodideInstance.globals.get("MANUAL_FIELDS").toJs();
-            const alfred_column_order = pyodideInstance.globals.get("ALFRED_COLUMN_ORDER").toJs();
+            const manual_fields_obj = pyodideInstance.globals.get("MANUAL_FIELDS");
+            const alfred_column_order_obj = pyodideInstance.globals.get("ALFRED_COLUMN_ORDER");
+            
+            if (!manual_fields_obj || !alfred_column_order_obj) {
+                console.error("MANUAL_FIELDS or ALFRED_COLUMN_ORDER is undefined");
+                return;
+            }
+            
+            const manual_fields = manual_fields_obj.toJs();
+            const alfred_column_order = alfred_column_order_obj.toJs();
 
             // Display preview
             const table = document.getElementById("preview-table");
