@@ -56,7 +56,7 @@ async function initPyodide() {
 
         // Add to path and import
         pyodide.runPython("import sys; sys.path.insert(0, '/')");
-        pyodide.runPython("from scripts.transform import run");
+        pyodide.runPython("from scripts.transform import run, parse_csv, transform");
         
         console.log("Pyodide initialized successfully");
 
