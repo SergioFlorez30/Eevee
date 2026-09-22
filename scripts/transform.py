@@ -859,6 +859,40 @@ def transform(cm_rows, filename):
     return output_rows, errors
 
 # ============================================================================
+# DYNAMIC PRICING MODEL FORMULA
+# ============================================================================
+def build_pricing_model_formula(row_idx):
+    """Build dynamic formula for PRICING_MODEL that auto-updates based on TYPE (DV360) or STAGE (others)."""
+    from openpyxl.utils import get_column_letter
+    
+    platform_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("PLATFORM") + 1)
+    stage_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("STAGE") + 1)
+    type_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("TYPE") + 1)
+    
+    # Build DV360 type cases: IF(TYPE="Youtube","CPM", IF(TYPE="Skip","CPV", ...))
+    dv360_conditions = []
+    for type_name, pricing in PRICING_MODEL_BY_DV360_TYPE.items():
+        dv360_conditions.append(f'INDIRECT("{type_col_letter}"&ROW())="{type_name}","{pricing}"')
+    
+    # Build nested IFs
+    dv360_formula = "IF(" + ",IF(".join(dv360_conditions) + ',"")' + (")"*len(dv360_conditions))
+    
+    # Build stage cases: IF(STAGE="Awareness","CPM", IF(STAGE="Consideration","CPV", IF(STAGE="Conversion","CPA",")))
+    other_conditions = []
+    for stage_name in CAMPAIGN_GOAL_BY_STAGE.keys():
+        goals = CAMPAIGN_GOAL_BY_STAGE[stage_name]
+        first_goal = goals[0]
+        pricing = PRICING_MODEL_BY_CAMPAIGN_GOAL.get(first_goal, "")
+        other_conditions.append(f'INDIRECT("{stage_col_letter}"&ROW())="{stage_name}","{pricing}"')
+    
+    other_formula = "IF(" + ",IF(".join(other_conditions) + ',"")' + (")"*len(other_conditions))
+    
+    # Main formula: IF(PLATFORM="DV360", DV360_FORMULA, OTHER_FORMULA)
+    full_formula = f'=IFERROR(IF(INDIRECT("{platform_col_letter}"&ROW())="DV360",{dv360_formula},{other_formula}),"")'
+    
+    return full_formula
+
+# ============================================================================
 # EXCEL OUTPUT
 # ============================================================================
 def write_excel(output_rows, errors):
@@ -969,7 +1003,12 @@ def write_excel(output_rows, errors):
         status_value = str(row_data.get("STATUS", "")).strip().upper()
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
-            value = row_data.get(field, "")
+            # Skip PRICING_MODEL here (will be filled with formula in data validation section)
+            if field == "PRICING_MODEL":
+                value = ""
+            else:
+                value = row_data.get(field, "")
+            
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
 
             if is_bold_row:
@@ -1103,15 +1142,11 @@ def write_excel(output_rows, errors):
                 for row_idx in range(2, len(output_rows) + 2):
                     imp_status_validation.add(ws.cell(row=row_idx, column=col_idx))
             elif field == "PRICING_MODEL":
-                # Add PRICING_MODEL validation for all rows
-                pricing_model_validation = DataValidation(
-                    type="list",
-                    formula1=f'"{",".join(PRICING_MODEL_OPTIONS)}"',
-                    allow_blank=True
-                )
-                for row_idx in range(2, len(output_rows) + 2):
-                    pricing_model_validation.add(ws.cell(row=row_idx, column=col_idx))
-                ws.add_data_validation(pricing_model_validation)
+                # Add PRICING_MODEL with dynamic formula that auto-updates based on STAGE (other platforms) or TYPE (DV360)
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    # Set dynamic formula that will update when STAGE/TYPE changes
+                    cell.value = build_pricing_model_formula(row_idx)
             elif field == "TYPE":
                 for row_idx, row_data in enumerate(output_rows, start=2):
                     platform = row_data.get("PLATFORM", "")
