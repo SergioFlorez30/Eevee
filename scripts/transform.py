@@ -1028,20 +1028,10 @@ def write_excel(output_rows, errors):
             allow_blank=False
         )
 
-        # CAMPAIGN_GOAL: combine all goals from all stages
-        all_goals = []
-        for stage in sorted(CAMPAIGN_GOAL_BY_STAGE.keys()):
-            all_goals.extend(CAMPAIGN_GOAL_BY_STAGE[stage])
-        all_goals = sorted(list(set(all_goals)))  # Remove duplicates and sort
-        
-        campaign_goal_validation = DataValidation(
-            type="list",
-            formula1=f'"{",".join(all_goals)}"',
-            allow_blank=True
-        )
-
         type_validations = []
         bid_type_validations = []
+        campaign_goal_validations = []
+        campaign_goal_validations = []
         
         for col_idx, field in enumerate(ALFRED_COLUMN_ORDER, start=1):
             if field == "STATUS":
@@ -1051,8 +1041,19 @@ def write_excel(output_rows, errors):
                 for row_idx in range(2, len(output_rows) + 2):
                     stage_validation.add(ws.cell(row=row_idx, column=col_idx))
             elif field == "CAMPAIGN_GOAL":
-                for row_idx in range(2, len(output_rows) + 2):
-                    campaign_goal_validation.add(ws.cell(row=row_idx, column=col_idx))
+                # For each row, apply validation based on the STAGE value in that row
+                for row_idx, row_data in enumerate(output_rows, start=2):
+                    stage_value = row_data.get("STAGE", "")
+                    # Get the campaign goal options for this stage
+                    if stage_value in CAMPAIGN_GOAL_BY_STAGE:
+                        goals = CAMPAIGN_GOAL_BY_STAGE[stage_value]
+                        campaign_goal_validation_row = DataValidation(
+                            type="list",
+                            formula1=f'"{",".join(goals)}"',
+                            allow_blank=True
+                        )
+                        campaign_goal_validation_row.add(ws.cell(row=row_idx, column=col_idx))
+                        campaign_goal_validations.append(campaign_goal_validation_row)
             elif field == "PACING":
                 # Add PACING validation only for DV360 rows (but NOT for Campaign level)
                 for row_idx, row_data in enumerate(output_rows, start=2):
@@ -1098,10 +1099,11 @@ def write_excel(output_rows, errors):
         
         ws.add_data_validation(status_validation)
         ws.add_data_validation(stage_validation)
-        ws.add_data_validation(campaign_goal_validation)
         ws.add_data_validation(pacing_validation)
         ws.add_data_validation(budget_type_validation)
         ws.add_data_validation(imp_status_validation)
+        for campaign_goal_validation in campaign_goal_validations:
+            ws.add_data_validation(campaign_goal_validation)
         for type_validation in type_validations:
             ws.add_data_validation(type_validation)
         for bid_validation in bid_type_validations:
