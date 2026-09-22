@@ -412,6 +412,20 @@ BID_TYPE_OPTIONS = {
         "Maximize 2-second continuous video plays",
         "Maximize ad recall lift",
     ],
+    ("Meta", "Programmatic"): [
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+        "Maximize custom value/cost",
+        "Maximize reach",
+    ],
+    ("Meta", "PMP Guaranteed"): [
+        "Maximize viewable impressions",
+        "Maximize viewable for at least 10 seconds",
+        "Maximize completed in-view and audible",
+        "Maximize custom value/cost",
+        "Maximize reach",
+    ],
     ("DV360", "Youtube"): [
         "Control bid and budget at the line item level",
         "Maximize viewable impressions",

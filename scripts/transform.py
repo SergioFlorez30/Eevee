@@ -387,6 +387,8 @@ def normalize_bid_type_key(value):
         "nonskip": "Non_Skip",
         "skip": "Skip",
         "pmpnonguaranteed": "PMP_Non_Guaranteed",
+        "pmpguaranteed": "PMP Guaranteed",
+        "programmatic": "Programmatic",
         "bumper": "Bumper",
     }
     return aliases.get(token, "")
@@ -1067,6 +1069,14 @@ def write_excel(output_rows, errors):
             formula = list_range_formula(goals)
             wb.defined_names[range_name] = formula
 
+        # Create Named Ranges for BID_TYPE_OPTIMIZATION_TYPE by (Platform, Goal/Type)
+        for (platform, goal_or_type), options in BID_TYPE_OPTIONS.items():
+            # Clean name: Platform_GoalOrType (spaces to underscores)
+            clean_key = goal_or_type.replace(" ", "_").replace("/", "_")
+            range_name = f"{platform}_{clean_key}"
+            formula = list_range_formula(options)
+            wb.defined_names[range_name] = formula
+
         status_validation = DataValidation(
             type="list",
             formula1=f'"{",".join(STATUS_OPTIONS)}"',
@@ -1163,14 +1173,19 @@ def write_excel(output_rows, errors):
                     type_validation.add(ws.cell(row=row_idx, column=col_idx))
                     type_validations.append(type_validation)
             elif field == "BID_TYPE_OPTIMIZATION_TYPE":
+                # Create dynamic validation that references Named Ranges based on Platform + CAMPAIGN_GOAL/TYPE
+                platform_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("PLATFORM") + 1)
+                campaign_goal_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("CAMPAIGN_GOAL") + 1)
+                type_col_letter = get_column_letter(ALFRED_COLUMN_ORDER.index("TYPE") + 1)
+                
                 for row_idx, row_data in enumerate(output_rows, start=2):
-                    options = get_bid_type_options_for_row(row_data)
-                    if not options:
-                        continue
-                    formula = list_range_formula(options)
+                    # Build formula that dynamically constructs the named range name
+                    # Formula: =INDIRECTO(Platform & "_" & SUBSTITUTE(IF(Platform="DV360",TYPE,CAMPAIGN_GOAL)," ","_"))
+                    formula = f'=IFERROR(INDIRECTO(INDIRECT("{platform_col_letter}"&ROW())&"_"&SUBSTITUTE(SUBSTITUTE(IF(INDIRECT("{platform_col_letter}"&ROW())="DV360",INDIRECT("{type_col_letter}"&ROW()),INDIRECT("{campaign_goal_col_letter}"&ROW()))," ","_"),"/","_")),"")' 
+                    
                     bid_validation = DataValidation(
                         type="list",
-                        formula1=f"={formula}",
+                        formula1=formula,
                         allow_blank=True,
                     )
                     bid_validation.add(ws.cell(row=row_idx, column=col_idx))
