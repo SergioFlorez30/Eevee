@@ -104,9 +104,14 @@ function processCSV(csv_text, filename) {
 
     setStatus("Procesando transformación CM → ALFRED...", true);
 
+    // Pass CSV safely as JSON string to avoid indentation issues
+    const csvJsonString = JSON.stringify(csv_text);
+    
     pyodideInstance.runPythonAsync(`
+import json
 try:
-    result = run('''${csv_text.replace(/'/g, "\\'")}''', '''${filename}''')
+    csv_data = json.loads(${csvJsonString})
+    result = run(csv_data, '''${filename}''')
 except Exception as e:
     result = {
         "excel_bytes": None,
@@ -149,9 +154,15 @@ function buildPreview() {
     if (!pyodideInstance || !csvText || !fileName) return;
 
     try {
+        const csvJsonString = JSON.stringify(csvText);
+        const fileNameJsonString = JSON.stringify(fileName);
+        
         pyodideInstance.runPython(`
-            cm_rows = parse_csv('''${csvText.replace(/'/g, "\\'")}''')
-            output_rows, errors = transform(cm_rows, '''${fileName}''')
+import json
+csv_data = json.loads(${csvJsonString})
+file_name = json.loads(${fileNameJsonString})
+cm_rows = parse_csv(csv_data)
+output_rows, errors = transform(cm_rows, file_name)
         `);
 
         const output_rows = pyodideInstance.globals.get("output_rows").toJs();
