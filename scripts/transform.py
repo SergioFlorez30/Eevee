@@ -361,6 +361,7 @@ def normalize_bid_type_key(value):
     """Map raw condition values to canonical BID_TYPE_OPTIONS keys."""
     token = _norm_token(value)
     aliases = {
+        "vv": "Video Views",
         "videoviews": "Video Views",
         "sitetraffic": "Site Traffic",
         "reach": "Reach",
