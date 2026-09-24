@@ -33,8 +33,13 @@ async function initPyodide() {
         console.log("openpyxl installed successfully");
 
         // Fetch Python modules from server
-        const mappingCode = await fetch("config/mapping.py").then(r => r.text());
-        const transformCode = await fetch("scripts/transform.py").then(r => r.text());
+        const moduleVersion = Date.now();
+        const mappingCode = await fetch(`config/mapping.py?v=${moduleVersion}`, {
+            cache: "no-store",
+        }).then(r => r.text());
+        const transformCode = await fetch(`scripts/transform.py?v=${moduleVersion}`, {
+            cache: "no-store",
+        }).then(r => r.text());
 
         // Create directories in Pyodide filesystem
         try {
@@ -129,9 +134,10 @@ except Exception as e:
         buildPreview();
         showDownload(!hasErrors);
 
-        if (currentErrors.length > 0) {
-            showErrors(currentErrors);
-        }
+        // TEMPORARY: Disable error display (will re-enable post-meeting)
+        // if (currentErrors.length > 0) {
+        //     showErrors(currentErrors);
+        // }
 
         result.destroy();
     }).catch((error) => {
