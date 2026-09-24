@@ -415,30 +415,36 @@ def inject_implicit_campaigns(processed_rows):
     """For DV360 data: if first code is IO (no Campaign), inject Campaign row."""
     new_rows = []
     campaigns_added = {}
+    synthetic_index = -1
     
     for original_index, row_data in processed_rows:
         platform = row_data.get("PLATFORM", "")
         code_parts = row_data.get("_code_parts", [])
         
         # Check if DV360 and first code is IO (not Campaign)
-        if (platform == "DV360" and code_parts and 
-            not code_parts[0].startswith("Campaign")):
+        if (platform == "DV360" and code_parts and
+            code_parts[0].startswith("IO")):
             first_io = code_parts[0]
             campaign_key = (platform, first_io)
+            campaign_code = f"__implicit_campaign__{first_io}"
             
             if campaign_key not in campaigns_added:
                 effective_row = row_data.get("_effective_row", {})
                 campaign_row_data = {
                     "PLATFORM": platform,
                     "LEVEL": "Campaign",
-                    "_code_parts": (first_io,),
+                    "_code_parts": (campaign_code,),
                     "_effective_row": effective_row,
                     "_is_implicit_campaign": True,
                 }
-                synthetic_index = -(abs(hash((platform, first_io))) % 1000000 + 1)
                 new_rows.append((synthetic_index, campaign_row_data))
+                synthetic_index -= 1
                 campaigns_added[campaign_key] = True
-        
+
+            # Make the implicit Campaign the actual parent of this row.
+            row_data = dict(row_data)
+            row_data["_code_parts"] = [campaign_code] + list(code_parts)
+
         new_rows.append((original_index, row_data))
     
     return new_rows
