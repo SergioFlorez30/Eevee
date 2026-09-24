@@ -412,10 +412,15 @@ def get_bid_type_options_for_row(row_data):
 # ID GENERATION
 # ============================================================================
 def generate_ids(processed_rows):
-    """Generate hierarchical IDs based on platform and code hierarchy."""
+    """Generate hierarchical IDs based on platform and code hierarchy.
+    
+    For DV360, ensures Campaign level (0) exists implicitly even if missing from data.
+    Guarantees hierarchy: Campaign -> IO -> LI -> AdGroup
+    """
     ids = {}
     counter_map = {}  # (platform, parent_tuple) -> next_number
     id_by_path = {}   # (platform, code_path_tuple) -> generated ID
+    campaign_map = {} # (platform, first_io) -> campaign_id for missing campaigns
     
     for original_index, row in processed_rows:
         platform = row.get("PLATFORM", "")
@@ -427,7 +432,29 @@ def generate_ids(processed_rows):
         config = PLATFORM_CONFIG.get(platform, {})
         prefix = config.get("prefix", "X")
         
-        code_path = tuple(code_parts)
+        code_parts_list = list(code_parts)
+        
+        # For DV360: inject implicit Campaign level if first code is IO (not Campaign)
+        if platform == "DV360" and code_parts_list and code_parts_list[0].startswith("IO"):
+            # Group by first IO to assign consistent Campaign parent
+            first_io = code_parts_list[0]
+            campaign_key = (platform, first_io)
+            
+            if campaign_key not in campaign_map:
+                # Generate a Campaign ID for this IO group
+                campaign_counter_key = (platform, ())  # No parent for campaigns
+                if campaign_counter_key not in counter_map:
+                    counter_map[campaign_counter_key] = 1
+                campaign_num = counter_map[campaign_counter_key]
+                campaign_id = f"{prefix}{campaign_num}"
+                campaign_map[campaign_key] = campaign_id
+                id_by_path[(platform, (f"Campaign-{campaign_num}",))] = campaign_id
+                counter_map[campaign_counter_key] += 1
+            
+            # Prepend implicit Campaign to code_parts
+            code_parts_list = [f"Campaign-{campaign_map[campaign_key].replace(prefix, '')}"] + code_parts_list
+        
+        code_path = tuple(code_parts_list)
         parent_tuple = code_path[:-1]
         counter_key = (platform, parent_tuple)
 
