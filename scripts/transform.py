@@ -411,17 +411,44 @@ def get_bid_type_options_for_row(row_data):
 # ============================================================================
 # ID GENERATION
 # ============================================================================
-def generate_ids(processed_rows):
-    """Generate hierarchical IDs based on platform and code hierarchy.
+def inject_implicit_campaigns(processed_rows):
+    """For DV360 data: if first code is IO (no Campaign), inject Campaign row."""
+    new_rows = []
+    campaigns_added = {}
     
-    For DV360, ensures Campaign level (0) exists implicitly even if missing from data.
-    Each unique IO gets its own Campaign parent.
-    Hierarchy: Campaign -> IO -> LI -> AdGroup
-    """
+    for original_index, row_data in processed_rows:
+        platform = row_data.get("PLATFORM", "")
+        code_parts = row_data.get("_code_parts", [])
+        
+        # Check if DV360 and first code is IO (not Campaign)
+        if (platform == "DV360" and code_parts and 
+            not code_parts[0].startswith("Campaign")):
+            first_io = code_parts[0]
+            campaign_key = (platform, first_io)
+            
+            if campaign_key not in campaigns_added:
+                effective_row = row_data.get("_effective_row", {})
+                campaign_row_data = {
+                    "PLATFORM": platform,
+                    "LEVEL": "Campaign",
+                    "_code_parts": (first_io,),
+                    "_effective_row": effective_row,
+                    "_is_implicit_campaign": True,
+                }
+                synthetic_index = -(abs(hash((platform, first_io))) % 1000000 + 1)
+                new_rows.append((synthetic_index, campaign_row_data))
+                campaigns_added[campaign_key] = True
+        
+        new_rows.append((original_index, row_data))
+    
+    return new_rows
+
+
+def generate_ids(processed_rows):
+    """Generate hierarchical IDs. Assumes all hierarchy levels exist as rows."""
     ids = {}
-    counter_map = {}  # (platform, parent_tuple) -> next_number
-    id_by_path = {}   # (platform, code_path_tuple) -> generated ID
-    io_to_campaign = {}  # (platform, IO_code) -> implicit_campaign_tuple for consistent hierarchy
+    counter_map = {}
+    id_by_path = {}
     
     for original_index, row in processed_rows:
         platform = row.get("PLATFORM", "")
@@ -433,32 +460,7 @@ def generate_ids(processed_rows):
         config = PLATFORM_CONFIG.get(platform, {})
         prefix = config.get("prefix", "X")
         
-        code_parts_list = list(code_parts)
-        
-        # For DV360: inject implicit Campaign level if first code is IO (not Campaign)
-        if platform == "DV360" and code_parts_list and code_parts_list[0].startswith("IO"):
-            first_io = code_parts_list[0]
-            io_key = (platform, first_io)
-            
-            # Create implicit Campaign for this IO if not yet created
-            if io_key not in io_to_campaign:
-                # Generate Campaign ID: Campaign counter at root level
-                campaign_counter_key = (platform, ())  # Root level (no parent)
-                if campaign_counter_key not in counter_map:
-                    counter_map[campaign_counter_key] = 1
-                
-                campaign_num = counter_map[campaign_counter_key]
-                campaign_id = f"{prefix}{campaign_num}"
-                campaign_tuple = (f"__Campaign_{campaign_num}",)  # Implicit marker
-                
-                io_to_campaign[io_key] = campaign_tuple
-                id_by_path[(platform, campaign_tuple)] = campaign_id
-                counter_map[campaign_counter_key] += 1
-            
-            # Prepend implicit Campaign to code_parts
-            code_parts_list = list(io_to_campaign[io_key]) + code_parts_list
-        
-        code_path = tuple(code_parts_list)
+        code_path = tuple(code_parts)
         parent_tuple = code_path[:-1]
         counter_key = (platform, parent_tuple)
 
@@ -481,6 +483,8 @@ def generate_ids(processed_rows):
         counter_map[counter_key] += 1
     
     return ids
+
+
 
 def reconcile_parent_budgets(output_rows):
     """If immediate children have budget and parent campaign has 0/empty, set parent as children sum."""
@@ -698,7 +702,8 @@ def transform(cm_rows, filename):
         
         processed_rows.append((idx, row_data))
     
-    # ========== PASS 2: Generate hierarchical IDs ==========
+    # ========== PASS 2: Inject implicit campaigns, then generate IDs ==========
+    processed_rows = inject_implicit_campaigns(processed_rows)
     id_map = generate_ids(processed_rows)
     
     # ========== PASS 3: Build output rows ==========
@@ -706,6 +711,7 @@ def transform(cm_rows, filename):
         original_row = row_data["_effective_row"]
         platform = row_data["PLATFORM"]
         level = row_data["LEVEL"]
+        is_implicit_campaign = row_data.get("_is_implicit_campaign", False)
         
         output_row = {}
         
