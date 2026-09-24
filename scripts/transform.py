@@ -412,42 +412,113 @@ def get_bid_type_options_for_row(row_data):
 # ID GENERATION
 # ============================================================================
 def inject_implicit_campaigns(processed_rows):
-    """For DV360 data: if first code is IO (no Campaign), inject Campaign row."""
-    new_rows = []
-    campaigns_added = {}
+    """Complete missing DV360 hierarchy rows before generating IDs."""
+    if not processed_rows:
+        return processed_rows
+
+    def canonical_path(code_parts):
+        parts = list(code_parts)
+        if not parts:
+            return (), ""
+
+        first = str(parts[0]).strip()
+        campaign = first if not first.startswith(("IO", "LI", "ADG")) else (
+            f"__implicit_campaign__{first}"
+        )
+        io = next((part for part in parts if str(part).startswith("IO")), None)
+        li = next((part for part in parts if str(part).startswith("LI")), None)
+        adg = next((part for part in parts if str(part).startswith("ADG")), None)
+
+        if io is None:
+            io = f"__implicit_io__{campaign}"
+        if li is None:
+            li = f"__implicit_li__{io}"
+
+        last = str(parts[-1])
+        if last.startswith("ADG"):
+            return (campaign, io, li, adg), "Ad Group"
+        if last.startswith("LI"):
+            return (campaign, io, li), "Line Item"
+        if last.startswith("IO"):
+            return (campaign, io), "Insertion Order"
+        return (campaign,), "Campaign"
+
+    def level_for_path(path):
+        return ["Campaign", "Insertion Order", "Line Item", "Ad Group"][len(path) - 1]
+
+    source_paths = []
+    source_path_set = set()
+    for _, row_data in processed_rows:
+        if row_data.get("PLATFORM") != "DV360":
+            continue
+        path, _ = canonical_path(row_data.get("_code_parts", []))
+        if path:
+            source_paths.append(path)
+            source_path_set.add(path)
+
+    output_rows = []
+    emitted_paths = set()
     synthetic_index = -1
-    
+
+    def add_synthetic(path, child_row, empty=False):
+        nonlocal synthetic_index
+        if not path or path in emitted_paths:
+            return
+        effective_row = {} if empty else dict(child_row.get("_effective_row", {}))
+        output_rows.append((synthetic_index, {
+            "PLATFORM": "DV360",
+            "LEVEL": level_for_path(path),
+            "_code_parts": path,
+            "_effective_row": effective_row,
+            "_is_implicit_campaign": True,
+            "_is_synthetic_empty": empty,
+        }))
+        emitted_paths.add(path)
+        synthetic_index -= 1
+
     for original_index, row_data in processed_rows:
         platform = row_data.get("PLATFORM", "")
-        code_parts = row_data.get("_code_parts", [])
-        
-        # Check if DV360 and first code is IO (not Campaign)
-        if (platform == "DV360" and code_parts and
-            code_parts[0].startswith("IO")):
-            first_io = code_parts[0]
-            campaign_key = (platform, first_io)
-            campaign_code = f"__implicit_campaign__{first_io}"
-            
-            if campaign_key not in campaigns_added:
-                effective_row = row_data.get("_effective_row", {})
-                campaign_row_data = {
-                    "PLATFORM": platform,
-                    "LEVEL": "Campaign",
-                    "_code_parts": (campaign_code,),
-                    "_effective_row": effective_row,
-                    "_is_implicit_campaign": True,
-                }
-                new_rows.append((synthetic_index, campaign_row_data))
-                synthetic_index -= 1
-                campaigns_added[campaign_key] = True
+        if platform != "DV360":
+            output_rows.append((original_index, row_data))
+            continue
 
-            # Make the implicit Campaign the actual parent of this row.
-            row_data = dict(row_data)
-            row_data["_code_parts"] = [campaign_code] + list(code_parts)
+        path, actual_level = canonical_path(row_data.get("_code_parts", []))
+        if not path:
+            output_rows.append((original_index, row_data))
+            continue
 
-        new_rows.append((original_index, row_data))
-    
-    return new_rows
+        # Add missing ancestors using values inherited from their direct child.
+        for depth in range(1, len(path)):
+            ancestor = path[:depth]
+            if ancestor not in source_path_set:
+                add_synthetic(ancestor, row_data)
+
+        current_row = dict(row_data)
+        current_row["_code_parts"] = path
+        output_rows.append((original_index, current_row))
+        emitted_paths.add(path)
+
+        # A terminal branch must still contain LI and an empty Ad Group.
+        has_real_descendant = any(
+            len(other) > len(path) and other[:len(path)] == path
+            for other in source_paths
+        )
+        if not has_real_descendant and len(path) < 4:
+            completed_path = list(path)
+            while len(completed_path) < 4:
+                if len(completed_path) == 1:
+                    completed_path.append(f"__implicit_io__{completed_path[-1]}")
+                elif len(completed_path) == 2:
+                    completed_path.append(f"__implicit_li__{completed_path[-1]}")
+                else:
+                    completed_path.append(f"__implicit_adg__{completed_path[-1]}")
+                add_synthetic(
+                    tuple(completed_path),
+                    current_row,
+                    empty=(len(completed_path) == 4),
+                )
+
+    return output_rows
 
 
 def generate_ids(processed_rows):
@@ -724,6 +795,8 @@ def transform(cm_rows, filename):
         # Apply DIRECT_MAPPING
         for cm_field, alfred_field in DIRECT_MAPPING.items():
             output_row[alfred_field] = original_row.get(cm_field, "")
+        if not output_row.get("PLATFORM"):
+            output_row["PLATFORM"] = platform
 
         # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
         output_row["PRICING_MODEL"] = resolve_pricing_model(original_row)
@@ -775,6 +848,7 @@ def transform(cm_rows, filename):
         # Generate ID
         output_row["ID"] = id_map.get(original_index, "")
         output_row["__CODE_PARTS"] = tuple(row_data.get("_code_parts", []))
+        output_row["__SKIP_VALIDATION"] = row_data.get("_is_synthetic_empty", False)
         
         # Parse Target Audience
         target_audience = original_row.get("Target Audience", "")
@@ -817,6 +891,18 @@ def transform(cm_rows, filename):
         for field in EMPTY_FIELDS:
             if field not in output_row:
                 output_row[field] = ""
+
+        if row_data.get("_is_synthetic_empty", False):
+            structural_fields = {
+                "PLATFORM",
+                "LEVEL",
+                "ID",
+                "__CODE_PARTS",
+                "__SKIP_VALIDATION",
+            }
+            for field in output_row:
+                if field not in structural_fields:
+                    output_row[field] = ""
         
         output_rows.append(output_row)
 
@@ -825,6 +911,8 @@ def transform(cm_rows, filename):
     
     # ========== VALIDATION ==========
     for row in output_rows:
+        if row.get("__SKIP_VALIDATION", False):
+            continue
         platform = row.get("PLATFORM", "")
         level = row.get("LEVEL", "")
         
