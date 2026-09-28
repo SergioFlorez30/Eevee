@@ -422,8 +422,9 @@ def inject_implicit_campaigns(processed_rows):
             return (), ""
 
         first = str(parts[0]).strip()
+        # Temporary: CM does not send DV360 Campaign yet, so all orphan IOs share one Campaign.
         campaign = first if not first.startswith(("IO", "LI", "ADG")) else (
-            f"__implicit_campaign__{first}"
+            "__implicit_campaign__DV360"
         )
         io = next((part for part in parts if str(part).startswith("IO")), None)
         li = next((part for part in parts if str(part).startswith("LI")), None)
