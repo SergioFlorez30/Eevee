@@ -10,7 +10,7 @@ DIRECT_MAPPING = {
     "Platform": "PLATFORM",
     "Initiative": "INITIATIVE",
     "Autobidder Activation Flag": "AUTOBIDDERS",
-    "Coupon (Actuals)": "BONO",
+    "Allocated Coupons (Planned)": "BONO",
     "Cost Type": "PRICING_MODEL",
 }
 
