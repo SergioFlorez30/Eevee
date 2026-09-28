@@ -69,6 +69,8 @@ IMP_STATUS_OPTIONS = [
     "Manual Imp.",
 ]
 
+AUTOBIDDERS_OPTIONS = ["No", "Yes"]
+
 # ============================================================================
 # MANUAL FIELDS: User must select/enter these in Excel after download
 # ============================================================================

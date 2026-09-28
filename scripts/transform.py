@@ -800,6 +800,8 @@ def transform(cm_rows, filename):
             output_row[alfred_field] = original_row.get(cm_field, "")
         if not output_row.get("PLATFORM"):
             output_row["PLATFORM"] = platform
+        autobidders_raw = str(output_row.get("AUTOBIDDERS", "")).strip().lower()
+        output_row["AUTOBIDDERS"] = "Yes" if autobidders_raw in ["yes", "y", "true", "1", "si", "sí"] else "No"
 
         # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
         output_row["PRICING_MODEL"] = resolve_pricing_model(original_row)
@@ -1240,6 +1242,15 @@ def write_excel(output_rows, errors):
                 for row_idx in range(2, len(output_rows) + 2):
                     bid_type_validation.add(ws.cell(row=row_idx, column=col_idx))
                 ws.add_data_validation(bid_type_validation)
+            elif field == "AUTOBIDDERS":
+                autobidders_validation = DataValidation(
+                    type="list",
+                    formula1=f'"{",".join(AUTOBIDDERS_OPTIONS)}"',
+                    allow_blank=False
+                )
+                for row_idx in range(2, len(output_rows) + 2):
+                    autobidders_validation.add(ws.cell(row=row_idx, column=col_idx))
+                ws.add_data_validation(autobidders_validation)
         
         ws.add_data_validation(status_validation)
         ws.add_data_validation(stage_validation)
