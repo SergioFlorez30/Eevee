@@ -587,7 +587,11 @@ def reconcile_parent_budgets(output_rows):
         if not immediate_children:
             continue
 
-        for field in ["BUDGET", "TOTAL_BUDGET"]:
+        fields = ["BUDGET", "TOTAL_BUDGET"]
+        if parent_row.get("__IMPLICIT", False):
+            fields.append("BONO")
+
+        for field in fields:
             child_values = []
             for child in immediate_children:
                 value = child.get(field, "")
@@ -894,6 +898,13 @@ def transform(cm_rows, filename):
         # Taxonomy codes are unique per real row, so generated rows must not copy them.
         if is_implicit_campaign:
             output_row["CAMPAIGN_TAXO"] = ""
+        output_row["__IMPLICIT"] = is_implicit_campaign
+
+        # Generated Campaign totals come from its direct children (see reconcile_parent_budgets).
+        if is_implicit_campaign and level == "Campaign":
+            output_row["BUDGET"] = 0
+            output_row["TOTAL_BUDGET"] = 0
+            output_row["BONO"] = 0
 
         if row_data.get("_is_generated_adg", False):
             output_row["BUDGET"] = 0
