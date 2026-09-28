@@ -460,18 +460,17 @@ def inject_implicit_campaigns(processed_rows):
     emitted_paths = set()
     synthetic_index = -1
 
-    def add_synthetic(path, child_row, empty=False):
+    def add_synthetic(path, related_row, generated_adg=False):
         nonlocal synthetic_index
         if not path or path in emitted_paths:
             return
-        effective_row = {} if empty else dict(child_row.get("_effective_row", {}))
         output_rows.append((synthetic_index, {
             "PLATFORM": "DV360",
             "LEVEL": level_for_path(path),
             "_code_parts": path,
-            "_effective_row": effective_row,
+            "_effective_row": dict(related_row.get("_effective_row", {})),
             "_is_implicit_campaign": True,
-            "_is_synthetic_empty": empty,
+            "_is_generated_adg": generated_adg,
         }))
         emitted_paths.add(path)
         synthetic_index -= 1
@@ -515,7 +514,7 @@ def inject_implicit_campaigns(processed_rows):
                 add_synthetic(
                     tuple(completed_path),
                     current_row,
-                    empty=(len(completed_path) == 4),
+                    generated_adg=(len(completed_path) == 4),
                 )
 
     return output_rows
@@ -848,7 +847,7 @@ def transform(cm_rows, filename):
         # Generate ID
         output_row["ID"] = id_map.get(original_index, "")
         output_row["__CODE_PARTS"] = tuple(row_data.get("_code_parts", []))
-        output_row["__SKIP_VALIDATION"] = row_data.get("_is_synthetic_empty", False)
+        output_row["__SKIP_VALIDATION"] = row_data.get("_is_generated_adg", False)
         
         # Parse Target Audience
         target_audience = original_row.get("Target Audience", "")
@@ -892,17 +891,14 @@ def transform(cm_rows, filename):
             if field not in output_row:
                 output_row[field] = ""
 
-        if row_data.get("_is_synthetic_empty", False):
-            structural_fields = {
-                "PLATFORM",
-                "LEVEL",
-                "ID",
-                "__CODE_PARTS",
-                "__SKIP_VALIDATION",
-            }
-            for field in output_row:
-                if field not in structural_fields:
-                    output_row[field] = ""
+        # Taxonomy codes are unique per real row, so generated rows must not copy them.
+        if is_implicit_campaign:
+            output_row["CAMPAIGN_TAXO"] = ""
+
+        if row_data.get("_is_generated_adg", False):
+            output_row["BUDGET"] = 0
+            output_row["TOTAL_BUDGET"] = 0
+            output_row["BONO"] = 0
         
         output_rows.append(output_row)
 
