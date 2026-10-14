@@ -416,6 +416,47 @@ def inject_implicit_campaigns(processed_rows):
     if not processed_rows:
         return processed_rows
 
+    campaigns_by_path = {}
+    for position, (_, row_data) in enumerate(processed_rows):
+        if row_data.get("LEVEL") != "Campaign":
+            continue
+        platform = row_data.get("PLATFORM", "")
+        campaign_path = tuple(row_data.get("_code_parts", ()))
+        if campaign_path:
+            campaigns_by_path.setdefault((platform, campaign_path), []).append(position)
+
+    def has_following_children(position, platform, campaign_path):
+        for next_position in range(position + 1, len(processed_rows)):
+            _, next_row = processed_rows[next_position]
+            if next_row.get("PLATFORM", "") != platform:
+                break
+            next_path = tuple(next_row.get("_code_parts", ()))
+            if len(next_path) <= len(campaign_path) or next_path[:len(campaign_path)] != campaign_path:
+                break
+            return True
+        return False
+
+    duplicate_childless_positions = set()
+    for (platform, campaign_path), positions in campaigns_by_path.items():
+        if len(positions) < 2:
+            continue
+        child_states = [
+            (position, has_following_children(position, platform, campaign_path))
+            for position in positions
+        ]
+        if any(has_children for _, has_children in child_states) and any(
+            not has_children for _, has_children in child_states
+        ):
+            duplicate_childless_positions.update(
+                position for position, has_children in child_states if not has_children
+            )
+
+    if duplicate_childless_positions:
+        processed_rows = [
+            row for position, row in enumerate(processed_rows)
+            if position not in duplicate_childless_positions
+        ]
+
     def canonical_path(code_parts):
         parts = list(code_parts)
         if not parts:
@@ -511,7 +552,9 @@ def inject_implicit_campaigns(processed_rows):
                 elif len(completed_path) == 2:
                     completed_path.append(f"__implicit_li__{completed_path[-1]}")
                 else:
-                    completed_path.append(f"__implicit_adg__{completed_path[-1]}")
+                    completed_path.append(
+                        f"__implicit_adg__{completed_path[-1]}__row_{original_index}"
+                    )
                 add_synthetic(
                     tuple(completed_path),
                     current_row,
@@ -539,7 +582,8 @@ def generate_ids(processed_rows):
         
         code_path = tuple(code_parts)
         parent_tuple = code_path[:-1]
-        counter_key = (platform, parent_tuple)
+        parent_id = id_by_path.get((platform, parent_tuple), "") if parent_tuple else ""
+        counter_key = (platform, parent_id or parent_tuple)
 
         if counter_key not in counter_map:
             counter_map[counter_key] = 1
@@ -547,7 +591,6 @@ def generate_ids(processed_rows):
         current_num = counter_map[counter_key]
 
         if parent_tuple:
-            parent_id = id_by_path.get((platform, parent_tuple), "")
             if parent_id:
                 id_str = f"{parent_id}-{current_num}"
             else:
