@@ -232,6 +232,26 @@ Usuario recibe ALFRED.xlsx + Errores.xlsx (si hay)
 
 ---
 
+## 🧪 Pruebas
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+- La suite está en `tests/`, y hay un CSV por escenario en `tests/fixtures/`.
+- `tests/test_brechas_conocidas.py` documenta como `xfail` los defectos abiertos.
+- GitHub Actions corre la suite en cada push.
+- Para el detalle, ver [docs/TEST_PLAN_Y_MANEJO_DE_ERRORES.md](docs/TEST_PLAN_Y_MANEJO_DE_ERRORES.md).
+
+### UAT (Key Users)
+
+- `uat/Eevee_UAT.xlsx`: 31 escenarios en el formato del UAT de CM, con una hoja por Key User: Planner, Trader y Digital Expert.
+- `uat/test-data/`: los CSV que usa cada escenario.
+- Para regenerar ambos: `python uat/build_uat.py`.
+
+---
+
 ## Plataformas soportadas
 
 | Plataforma | Niveles | ID Prefix | Plan Level | Validaciones especiales |

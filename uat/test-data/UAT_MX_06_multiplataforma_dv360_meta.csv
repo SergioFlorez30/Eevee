@@ -1,0 +1,8 @@
+Platform,Line Item,Start Date,End Date,Brand,Sub Brand,Total Budget,Billable Budget,Target Audience,Media Objective,Initiative,Cost Type,Publisher,Allocated Coupons (Planned),OU Planning Level
+DV360,Hair Care Launch -> IO1_YT -> LI1_NonSkip,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,DV360 YT
+DV360,Hair Care Launch -> IO1_YT -> LI2_Bumper,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,DV360 YT
+DV360,Hair Care Launch -> IO2_PG -> LI1_OX_Display,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,DV360 Programmatic
+Meta,Hair Care -> CMP_M1,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,
+Meta,Hair Care -> CMP_M1 -> ADG1_a,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_T1,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_T1 -> ADG1_a,01/09/2026,30/09/2026,Pantene,Pro-V,1000,1000,W_18-34,Awareness,Launch,CPM,,0,

@@ -1,0 +1,5 @@
+Platform,Line Item,Start Date,End Date,Brand,Sub Brand,Total Budget,Billable Budget,Target Audience,Media Objective,Initiative,Cost Type,Publisher,Allocated Coupons (Planned),OU Planning Level
+Facebook,Hair Care -> CMP_M1,2026-01-01,2026-01-31,Pantene,Pro,1000,1000,M_25-44,Consideration,Launch,CPM,,0,
+Facebook,Hair Care -> CMP_M1,2026-01-01,2026-01-31,Pantene,Pro,1000,1000,M_25-44,Consideration,Launch,CPM,,0,
+Facebook,Hair Care -> CMP_M1 -> ADG1_x,2026-01-01,2026-01-31,Pantene,Pro,1000,1000,M_25-44,Consideration,Launch,CPM,,0,
+Facebook,Hair Care -> CMP_M2,2026-01-01,2026-01-31,Pantene,Pro,500,500,M_25-44,Consideration,Launch,CPM,,0,

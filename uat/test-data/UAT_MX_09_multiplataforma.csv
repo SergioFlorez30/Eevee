@@ -1,0 +1,7 @@
+Platform,Line Item,Start Date,End Date,Brand,Sub Brand,Total Budget,Billable Budget,Target Audience,Media Objective,Initiative,Cost Type,Publisher,Allocated Coupons (Planned),OU Planning Level
+Pinterest,Hair Care -> CMP_P1,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+Pinterest,Hair Care -> CMP_P1 -> ADG1_a,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+Google Ads,Hair Care -> CMP_G1,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPC,,0,
+Google Ads,Hair Care -> CMP_G1 -> ADG1_a,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPC,,0,
+Amazon Prime,Hair Care -> CMP_A1,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+Amazon Prime,Hair Care -> CMP_A1 -> ADG1_a,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
