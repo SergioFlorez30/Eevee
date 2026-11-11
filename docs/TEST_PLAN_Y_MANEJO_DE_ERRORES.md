@@ -31,7 +31,7 @@ Versión base: rama `feature/cm-to-alfred`, commit `0ee3b54`.
 | Excepción en Python (`run`) | try/except en `run` y en `processCSV` | Nada visible: la lista de errores está desactivada temporalmente | Sí, porque no hay XLSX |
 | Falta un campo obligatorio | `transform` → lista `errors` | No se muestra en la UI (desactivada); aparece en la hoja **Errores** del XLSX, en inglés | No (definido por negocio) |
 | Error en la vista previa | `buildPreview` catch | Solo en la consola (F12) | No |
-| Plataforma desconocida o nivel no inferible | `transform` (`continue`) | **Nada: la fila se omite en silencio** | No |
+| Plataforma desconocida o nivel no inferible | `transform` (`continue`) | Se omite la fila y se reporta un error con su número de fila de CM | No |
 | Fecha no parseable | `parse_date` → vacío | Se convierte en error de obligatorio START_/END_ | Indirectamente |
 | Monto no parseable | `clean_currency` → vacío | Se convierte en error de obligatorio BUDGET | Indirectamente |
 | País no encontrado en el nombre del archivo | `extract_country_from_filename` → "" | Error de obligatorio COUNTRY | Indirectamente |
@@ -43,14 +43,14 @@ Versión base: rama `feature/cm-to-alfred`, commit `0ee3b54`.
 
 1. **La lista de errores está desactivada en la UI** (temporal, por la reunión). El usuario no sabe qué corregir.
 2. **Inyección o rotura por string embebido.** El CSV se concatena dentro de un string Python. Una `\` en los datos se interpreta como escape (`\n`, `\t`, `\x`), y un `'` en el nombre del archivo rompe el código. Corrección: pasar los datos con `pyodide.globals.set("csv_text", ...)` en lugar de interpolarlos.
-3. **Filas descartadas en silencio.** Una plataforma no reconocida o un Line Item sin nivel se pierden sin aviso, y el usuario puede subir a ALFRED un plan incompleto. Se debe reportar como error o advertencia con el número de fila de CM.
+3. **Corregido: filas descartadas en silencio.** Una plataforma no reconocida o un Line Item sin código de nivel se siguen omitiendo (no se inventa plataforma ni nivel), pero ahora se reportan como error con el número de fila de CM. Las filas sin Line Item ni plataforma no generan aviso.
 4. **Montos ambiguos.** `1,234` se interpreta como 1.234 (formato europeo) y `1.234` como 1.234 (formato americano). Hay que confirmar el formato real del export de CM y fijarlo.
 5. **Fechas ambiguas.** `03/04/2026` siempre se toma como dd/mm. Si CM exporta mm/dd, las fechas salen cruzadas sin error. Además, `Jan-26` y los datetime con hora no están soportados.
 6. **El número de fila de los errores no corresponde al CSV de CM.** "Row N" es la posición en la salida de ALFRED, que incluye filas generadas y excluye las descartadas, así que no coincide con la fila que el usuario debe corregir en CM.
 7. **Mensajes en inglés** ("Missing mandatory field") cuando el requisito es español y sin jerga.
 8. **BOM y codificación.** Un CSV con BOM (`\ufeffPlatform`) o en UTF-16 puede dejar de reconocer la columna `Platform`, y todas las filas se descartan en silencio.
 9. **El archivo se transforma dos veces** (proceso + vista previa). Duplica el tiempo con archivos grandes.
-10. **País detectado por subcadena del nombre del archivo.** Como `.csv` contiene "SV", un archivo sin código de país sale con COUNTRY = **SV (El Salvador)** sin error. Además, `Campaign_GT.csv` devuelve "PA", porque "CAMPAIGN" contiene "PA".
+10. **Corregido: país detectado por subcadena del nombre del archivo.** Ahora se ignoran la extensión y las carpetas y solo se reconocen códigos completos separados por signos o espacios. `Campaign_GT.csv` devuelve GT. Sin código válido o con varios países distintos, COUNTRY queda vacío y se reporta como obligatorio faltante; se mantiene la descarga.
 11. **El dropdown de BID_TYPE_OPTIMIZATION_TYPE supera el límite de 255 caracteres** que Excel permite en una lista de validación. Excel puede pedir "reparar" el archivo y eliminar ese dropdown.
 
 ## 4. Matriz de pruebas
@@ -67,7 +67,7 @@ Prioridad: **P0** = bloquea producción · **P1** = importante · **P2** = desea
 | U-04 | `clean_currency` | `$1,234.56`, `1.234,56`, `1000`, `0` | 1234.56 / 1234.56 / 1000 / 0 | P0 |
 | U-05 | `clean_currency` | `1,234`, `1.234`, `USD 500`, `-50`, `N/A` | Documentar o corregir la ambigüedad | P0 |
 | U-06 | `extract_country_from_filename` | Nombre con país, sin país, en minúsculas, dos países | Código correcto o "" | P1 |
-| U-07 | `extract_gender` / `extract_age_range` | Variantes de Target Audience y vacío | Valor de catálogo o vacío (luego error) | P0 |
+| U-07 | `extract_gender` / `extract_age_range` | Códigos y etiquetas de Target Audience (`HM` = People; `Female/Male/People 18+`), vacío y herencia bidireccional | Conserva edad; hereda del ancestro más cercano o completa padres con consenso de hijos. Audiencias diferentes no se mezclan; un valor propio prevalece. Incluye padres generados y conflictos multinivel | P0 |
 | U-08 | `normalize_stage` | Todos los valores de `STAGE_MAPPING` + desconocido | Valor válido o vacío | P0 |
 | U-09 | `normalize_platform` | Cada plataforma, alias (Facebook, Instagram, Messenger, YT), fallback por Publisher y OU Planning Level, desconocida | Plataforma de catálogo | P0 |
 | U-10 | `determine_level_dv360` | Campaign, IO, LI, Ad Group, filler | Nivel correcto o None | P0 |
@@ -88,15 +88,16 @@ Prioridad: **P0** = bloquea producción · **P1** = importante · **P2** = desea
 |---|---|---|---|
 | F-01 | `dv360_completo.csv` (Campaign → IO → LI) | Ad Group generado que hereda del LI; BUDGET/TOTAL_BUDGET/BONO = 0; IDs | P0 |
 | F-02 | `dv360_io_huerfanos.csv` | Una sola Campaign generada; suma de hijos; `CAMPAIGN_TAXO` vacío | P0 |
-| F-03 | `dv360_io_li_repetido.csv` | Regresión del commit `0ee3b54`: ambos Ad Groups existen y con IDs distintos | P0 |
+| F-03 | IO/LI repetido con datos distintos y `dv360_io_li_repetido.csv` (idéntico) | Regresión del commit `0ee3b54`: con datos distintos, ambos Ad Groups existen con IDs distintos; si son idénticos, sale una sola rama | P0 |
 | F-04 | `meta_campaign_duplicada.csv` | Se elimina la Campaign vacía duplicada y se conserva la única sin hijos | P0 |
 | F-05 | `tiktok_ids.csv` | Regresión: TK2-1/TK2-2 en lugar de TK2-3/TK2-4 | P0 |
 | F-06 | Un fixture por plataforma (Pinterest, Google Ads, Amazon Prime) | Las 61 columnas en orden; obligatorios OK | P0 |
 | F-07 | `multiplataforma.csv` | Mezcla de plataformas sin que se crucen IDs ni jerarquías | P1 |
 | F-08 | `faltan_obligatorios.csv` (sin GENDER, AGE_RANGE, STAGE o PRICING_MODEL) | `has_errors=True` y error por campo | P0 |
-| F-09 | `plataforma_desconocida.csv` | Hoy: la fila se omite en silencio. Esperado: error visible | P0 |
+| F-09 | `plataforma_desconocida.csv` | La fila se omite y se reporta error visible (implementado) | P0 |
 | F-10 | `bono_allocated_coupons.csv` | BONO leído de `Allocated Coupons (Planned)` | P1 |
 | F-11 | `volumen_5000_filas.csv` | Tiempo menor a X s y memoria estable | P1 |
+| F-13 | Filas que solo difieren en columnas que Eevee ignora (`Publisher ID`, `Planned CPM`, ...) | Salen como una sola fila; IDs consecutivos y presupuesto del padre sin inflar. Si difiere un dato usado (p. ej. presupuesto), se conservan ambas | P0 |
 | F-12 | Golden file: CSV real anonimizado → XLSX esperado validado por el PO | Comparación celda a celda (detecta cualquier regresión) | P0 |
 
 ### 4.3 Excel (salida)
@@ -156,10 +157,21 @@ Prioridad: **P0** = bloquea producción · **P1** = importante · **P2** = desea
 | `tests/test_unit_jerarquia.py` | U-10 a U-17: parseo del CSV, niveles, TYPE, BID_TYPE, IDs |
 | `tests/test_flujo.py` | F-01 a F-11, U-18 a U-20: DV360, IO huérfanos, regresión de `0ee3b54`, IDs de TikTok, Meta duplicada, multiplataforma, casteo, obligatorios, `run()`, volumen de 5.000 filas |
 | `tests/test_excel.py` | X-01 a X-05: encabezados, valores, hoja Errores, dropdowns, sin NamedRange ni `INDIRECT` |
+| `tests/test_frequency.py` | Frequency numérico → texto `Nx7`; herencia bidireccional por consenso, conflictos, prioridad del valor propio, padres generados de DV360, deduplicación, valores inválidos y formato de celdas del Excel |
 | `tests/test_brechas_conocidas.py` | Hallazgos abiertos como `xfail` estrictos: cuando alguien corrige uno, la suite avisa para quitar la marca |
 | `tests/fixtures/*.csv` | Un CSV por escenario; agregar aquí los exports reales anonimizados |
 
-Resultado actual: **136 pruebas pasan y 13 brechas conocidas están marcadas como `xfail`**.
+Resultado actual: **290 pruebas pasan y 9 casos están marcados como `xfail`**. Los casos de detección de país ya pasan, incluidas mayúsculas/minúsculas, límites de códigos, ambigüedad y verificación de COUNTRY vacío con errores en el Excel descargable. Se incluyen formatos de audiencia con códigos o etiquetas, HM = People y herencia bidireccional con consenso y conflictos multinivel. Frequency se transforma a texto `Nx7` con las mismas reglas de herencia.
+
+### Cobertura de países y UAT
+
+- La suite parametriza los 25 códigos de `COUNTRY_CODES`, tanto en mayúsculas como en minúsculas, sin asumir que todo archivo es de México.
+- El UAT en `uat/Eevee_UAT.xlsx` contiene 32 escenarios por Key User: 17 de Data Validation, 10 de Tool Functionality y 5 de Workflow/Integration.
+- El UAT mantiene solo dos escenarios de negocio para país: 1.7 valida el mercado correcto con Colombia y Guatemala (`CO_2026.csv`, `GT_2026.csv`); 1.17 valida que un mercado no identificable quede vacío y se reporte en el Excel (`export.csv`), manteniendo la descarga.
+- La matriz completa de 25 códigos, mayúsculas/minúsculas, códigos dentro de palabras, extensión, separadores y ambigüedad corresponde a pytest, no a tareas del Key User.
+- Los 28 CSV de países generados contienen las mismas 5 filas de TikTok para aislar el efecto del nombre del archivo. Solo tres se requieren en el UAT; el resto queda como material técnico opcional.
+- Se corrigió la detección: los 25 códigos configurados deben obtenerse correctamente. `export.csv` queda sin país, `Campaign_GT.csv` devuelve GT y `MX_CO.csv` queda sin país.
+- Los resultados del UAT se dejan vacíos para ejecución por los Key Users. La corrección solo afecta a la detección de COUNTRY; no modifica la política de descarga con errores ni otras reglas de transformación.
 
 Quedan fuera de pytest: la capa de UI (I-01 a I-10), la importación real en ALFRED (X-06) y el golden file con datos reales (F-12).
 

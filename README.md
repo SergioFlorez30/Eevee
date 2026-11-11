@@ -246,8 +246,9 @@ pytest
 
 ### UAT (Key Users)
 
-- `uat/Eevee_UAT.xlsx`: 31 escenarios en el formato del UAT de CM, con una hoja por Key User: Planner, Trader y Digital Expert.
+- `uat/Eevee_UAT.xlsx`: 32 escenarios en el formato del UAT de CM, con una hoja por Key User: Planner, Trader y Digital Expert. Países se valida con dos escenarios de negocio: mercado correcto (Colombia y Guatemala) y mercado no identificable.
 - `uat/test-data/`: los CSV que usa cada escenario.
+- `uat/test-data/countries/`: para el UAT se usan `CO_2026.csv`, `GT_2026.csv` y `export.csv`. Los demás archivos son material técnico opcional, no tareas adicionales del Key User. La cobertura exhaustiva de países y nombres de archivo está en pytest.
 - Para regenerar ambos: `python uat/build_uat.py`.
 
 ---
@@ -279,11 +280,12 @@ pytest
 | Brand | Texto | BRAND en ALFRED (MANDATORY) |
 | Sub Brand | Texto | SUB_BRAND en ALFRED (MANDATORY) |
 | Total Budget | Número (1.234,56 o 1,234.56) | TOTAL_BUDGET en ALFRED (MANDATORY) |
-| Target Audience | Formato [W/M/P]_[18-24/25-34/etc] | Genera GENDER, AGE_RANGE (MANDATORY) |
+| Target Audience | Códigos W/M/H/HM/P con `_` o etiquetas Female/Male/People con espacio; ej. `W_18-34`, `HM_18-65`, `Female 18+` | Genera GENDER, AGE_RANGE (MANDATORY). W/Female → Female; M/H/Male → Male; HM/P/People → People. Conserva el rango, incluido `18+`. Si está vacío, hereda del ancestro disponible más cercano; no reemplaza un valor propio del hijo. También completa padres vacíos desde sus hijos cuando existe una única audiencia (mismo género y edad); con audiencias diferentes deja ambos atributos vacíos y reporta los obligatorios faltantes. Aplica también a padres generados de DV360. |
 | Media Objective | performance, awareness, consideration, conversion, data gathering | Genera STAGE (MANDATORY) |
+| Frequency | Número, ej. `1`, `2`, `3` | Genera FREQUENCY como texto agregando `x7`: `1` → `1x7`. Hereda del ancestro disponible más cercano; completa padres vacíos solo con consenso de hijos, incluidos padres generados de DV360. Un valor propio prevalece; con hijos distintos el padre vacío permanece vacío. Sin dato resoluble queda editable en amarillo. Los valores no numéricos se reportan en Errores. |
 | Initiative | Texto | INITIATIVE en ALFRED (MANDATORY) |
 | Cost Type | Texto | Genera PRICING_MODEL (MANDATORY) |
-| **Filename** | Contiene código país (MX, AR, BR, US, etc) | Extrae COUNTRY (MANDATORY) |
+| **Filename** | Un único código de país configurado, separado por guiones, espacios, `_` u otros signos (ej. `Plan_CO_2026.csv`) | Extrae COUNTRY (MANDATORY). Ignora extensión y carpetas; sin código válido o con varios países distintos, deja COUNTRY vacío y lo reporta como error sin impedir la descarga. |
 
 *Plan Level NO es necesario para DV360 (usa prefijo en Line Item)
 

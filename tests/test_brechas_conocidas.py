@@ -9,19 +9,6 @@ from scripts.transform import clean_currency, extract_country_from_filename, par
 from tests.conftest import cm_row, run_transform, build_csv
 
 
-@pytest.mark.xfail(strict=True, reason="Hallazgo 3: filas con plataforma desconocida se omiten sin aviso")
-def test_plataforma_desconocida_genera_error_visible():
-    rows, errors = run_transform([cm_row("Snapchat", "Hair Care -> CMP_1")])
-    assert rows == []
-    assert errors, "El usuario debe saber que se descarto una fila"
-
-
-@pytest.mark.xfail(strict=True, reason="Hallazgo 3: Line Item sin codigo se omite sin aviso")
-def test_line_item_sin_codigo_genera_error_visible():
-    _, errors = run_transform([cm_row("Meta", "Hair Care sin codigo")])
-    assert errors
-
-
 @pytest.mark.xfail(strict=True, reason="Hallazgo 8: CSV con BOM pierde la columna Platform")
 def test_csv_con_bom():
     rows = parse_csv("\ufeff" + build_csv([cm_row("Meta", "Hair Care -> CMP_1")]))
@@ -45,12 +32,10 @@ def test_miles_con_coma_sin_decimales():
     assert clean_currency("1,234") == 1234.0
 
 
-@pytest.mark.xfail(strict=True, reason="Codigo de pais por subcadena: 'CAMPAIGN' contiene 'PA'")
 def test_pais_no_se_confunde_con_palabras():
     assert extract_country_from_filename("Campaign_GT.csv") == "GT"
 
 
-@pytest.mark.xfail(strict=True, reason="Codigo de pais por subcadena: '.csv' contiene 'SV' (El Salvador)")
 def test_archivo_sin_pais_no_asigna_el_salvador():
     assert extract_country_from_filename("export.csv") == ""
 

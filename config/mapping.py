@@ -78,7 +78,7 @@ AUTOBIDDERS_OPTIONS = ["No", "Yes"]
 MANUAL_FIELDS_COMMON = [
     "CAMPAIGN_GOAL",
     "PO",
-    "FREQUENCY",
+    "FREQUENCY",  # Manual fallback only when Frequency cannot be inherited from CM.
     "STATUS",
     "IMP_STATUS",
     "BID_TYPE_OPTIMIZATION_TYPE",
@@ -259,7 +259,10 @@ GENDER_MAP = {
     "M": "Male",
     "H": "Male",
     "P": "People",
-    "HM": "Male",
+    "HM": "People",
+    "FEMALE": "Female",
+    "MALE": "Male",
+    "PEOPLE": "People",
 }
 
 # ============================================================================

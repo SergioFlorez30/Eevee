@@ -1,6 +1,7 @@
 import csv
 import re
 from datetime import datetime
+from decimal import Decimal
 from io import BytesIO
 from config.mapping import *
 
@@ -62,37 +63,31 @@ def clean_currency(value):
 # COUNTRY EXTRACTION
 # ============================================================================
 def extract_country_from_filename(filename):
-    """Extract valid country code from filename."""
-    for code in COUNTRY_CODES:
-        if code in filename.upper():
-            return code
-    return ""
+    """Return the single distinct country token, or blank if missing/ambiguous."""
+    basename = re.split(r"[/\\]", filename)[-1]
+    stem = basename.rsplit(".", 1)[0] if "." in basename else basename
+    tokens = set(re.split(r"[\W_]+", stem.upper()))
+    countries = tokens.intersection(COUNTRY_CODES)
+    return countries.pop() if len(countries) == 1 else ""
 
 # ============================================================================
 # GENDER & AGE EXTRACTION
 # ============================================================================
+def _split_target_audience(target_audience):
+    return re.split(r"[_\s]+", str(target_audience or "").strip())
+
+
 def extract_gender(target_audience):
-    """Extract gender from Target Audience prefix."""
-    if not target_audience or str(target_audience).strip() == "":
-        return ""
-    
-    parts = str(target_audience).split("_")
-    if not parts:
-        return ""
-    
-    prefix = parts[0].upper()
-    for key, value in GENDER_MAP.items():
-        if prefix.startswith(key):
-            return value
-    
-    return ""
+    """Extract a gender code or label separated by underscores or whitespace."""
+    parts = _split_target_audience(target_audience)
+    return GENDER_MAP.get(parts[0].upper(), "")
 
 def extract_age_range(target_audience):
     """Extract age range from Target Audience suffix."""
     if not target_audience or str(target_audience).strip() == "":
         return ""
     
-    parts = str(target_audience).split("_")
+    parts = _split_target_audience(target_audience)
     if len(parts) > 1:
         return parts[1]
     
@@ -564,6 +559,73 @@ def inject_implicit_campaigns(processed_rows):
     return output_rows
 
 
+def _audience_identity(audience):
+    gender, age = extract_gender(audience), extract_age_range(audience)
+    return (gender, age) if gender and age else ("raw", audience)
+
+
+def format_frequency(value):
+    value = str(value).strip() if value is not None else ""
+    if not value:
+        return ""
+    if not re.fullmatch(r"\d+(?:\.\d+)?", value):
+        raise ValueError(f"Invalid Frequency '{value}'; expected a number")
+    return f"{value}x7"
+
+
+def _frequency_identity(value):
+    if re.fullmatch(r"\d+(?:\.\d+)?", value):
+        return Decimal(value)
+    return ("raw", value)
+
+
+def resolve_inherited_field_upwards(processed_rows, field, identity_key):
+    """Fill empty fields only when a branch has one unambiguous value."""
+    nodes = {}
+    for _, row in processed_rows:
+        platform = row["PLATFORM"]
+        path = tuple(row.get("_code_parts", ()))
+        for depth in range(1, len(path) + 1):
+            key = (platform, path[:depth])
+            nodes.setdefault(key, {"values": {}, "children": set()})
+            if depth > 1:
+                nodes[(platform, path[:depth - 1])]["children"].add(key)
+        if not path or row.get("_is_implicit_campaign", False):
+            continue
+        value = row["_effective_row"].get(field, "")
+        if value:
+            nodes[(platform, path)]["values"].setdefault(identity_key(value), value)
+
+    ordered_keys = sorted(nodes, key=lambda key: len(key[1]))
+    for key in reversed(ordered_keys):
+        node = nodes[key]
+        if not node["values"]:
+            for child_key in node["children"]:
+                node["values"].update(nodes[child_key]["values"])
+
+    # Newly resolved parents can also supply children without any value.
+    # Conflicting branches retain their evidence and must stay empty.
+    for platform, path in ordered_keys:
+        node = nodes[(platform, path)]
+        if not node["values"] and len(path) > 1:
+            parent = nodes[(platform, path[:-1])]
+            node["values"].update(parent["values"])
+
+    for _, row in processed_rows:
+        path = tuple(row.get("_code_parts", ()))
+        if not path:
+            continue
+        effective = row["_effective_row"]
+        if effective.get(field) and not row.get("_is_implicit_campaign", False):
+            continue
+        values = nodes[(row["PLATFORM"], path)]["values"]
+        effective[field] = next(iter(values.values())) if len(values) == 1 else ""
+
+
+def resolve_target_audience_upwards(processed_rows):
+    resolve_inherited_field_upwards(processed_rows, "Target Audience", _audience_identity)
+
+
 def generate_ids(processed_rows):
     """Generate hierarchical IDs. Assumes all hierarchy levels exist as rows."""
     ids = {}
@@ -737,6 +799,28 @@ def parse_csv(csv_text):
 
     return parsed_rows
 
+# CM columns that influence the ALFRED output. Any other column (Publisher ID,
+# Planned CPM, Media Tools Vehicle ID, ...) is ignored and cannot make rows distinct.
+CM_FIELDS_USED = set(DIRECT_MAPPING.keys()) | {
+    "Frequency",
+    "Platform",
+    "Publisher",
+    "OU Planning Level",
+    "Plan Level",
+    "Line Item",
+    "Start Date",
+    "End Date",
+    "Billable Budget",
+    "Total Budget",
+    "Target Audience",
+    "Media Objective",
+    "Media SubType",
+    "OU Media Sub-Type",
+    "OU Media SubType",
+    "Site",
+}
+
+
 def transform(cm_rows, filename):
     """Transform CM rows to ALFRED format. Returns (output_rows[], errors[])."""
     output_rows = []
@@ -744,6 +828,7 @@ def transform(cm_rows, filename):
     processed_rows = []
     inheritance_cache = {}
     inheritable_fields = set(DIRECT_MAPPING.keys()) | {
+        "Frequency",
         "Platform",
         "Publisher",
         "OU Planning Level",
@@ -757,6 +842,8 @@ def transform(cm_rows, filename):
         "Line Item",
     }
     
+    seen_dedup_keys = set()
+
     # ========== PASS 1: Determine levels and collect processable rows ==========
     for idx, row in enumerate(cm_rows):
         normalized_row = {
@@ -800,6 +887,11 @@ def transform(cm_rows, filename):
             inheritance_cache[current_key] = current_cache
 
         if platform not in PLATFORM_CONFIG:
+            if platform or line_item:
+                shown = platform or "(empty)"
+                errors.append(
+                    f"CM row {idx + 1}: Platform '{shown}' is not supported by Eevee; the row was not included"
+                )
             continue
         
         config = PLATFORM_CONFIG[platform]
@@ -811,8 +903,21 @@ def transform(cm_rows, filename):
             level, taxo = determine_level_dv360(line_item)
         
         if level is None:
-            continue  # Skip filler rows
+            if line_item:
+                errors.append(
+                    f"CM row {idx + 1}: Line Item '{line_item}' has no level code (CMP/ADG/IO/LI); the row was not included"
+                )
+            continue
         
+        # CM repeats a row once per Publisher ID (and other columns Eevee ignores);
+        # if everything Eevee reads is identical, the ALFRED row would be identical too.
+        dedup_key = (platform, level) + tuple(
+            effective_row.get(field, "") for field in sorted(CM_FIELDS_USED)
+        )
+        if dedup_key in seen_dedup_keys:
+            continue
+        seen_dedup_keys.add(dedup_key)
+
         # Extract code parts for ID generation
         _, code_parts = _split_line_item(line_item)
         
@@ -828,6 +933,8 @@ def transform(cm_rows, filename):
     
     # ========== PASS 2: Inject implicit campaigns, then generate IDs ==========
     processed_rows = inject_implicit_campaigns(processed_rows)
+    resolve_target_audience_upwards(processed_rows)
+    resolve_inherited_field_upwards(processed_rows, "Frequency", _frequency_identity)
     id_map = generate_ids(processed_rows)
     
     # ========== PASS 3: Build output rows ==========
@@ -846,6 +953,11 @@ def transform(cm_rows, filename):
             output_row["PLATFORM"] = platform
         autobidders_raw = str(output_row.get("AUTOBIDDERS", "")).strip().lower()
         output_row["AUTOBIDDERS"] = "Yes" if autobidders_raw in ["yes", "y", "true", "1", "si", "sí"] else "No"
+        try:
+            output_row["FREQUENCY"] = format_frequency(original_row.get("Frequency", ""))
+        except ValueError as exc:
+            output_row["FREQUENCY"] = ""
+            errors.append(f"Row {len(output_rows) + 1}: {exc}")
 
         # Resolve PRICING_MODEL robustly when CM sends Cost Type as N/A.
         output_row["PRICING_MODEL"] = resolve_pricing_model(original_row)
@@ -1114,6 +1226,8 @@ def write_excel(output_rows, errors):
 
         # Manual fields are always yellow, with priority over row-level colors.
         manual_fields_for_row = set(MANUAL_FIELDS_COMMON)
+        if row_data.get("FREQUENCY"):
+            manual_fields_for_row.discard("FREQUENCY")
         if platform == "DV360" and level != "Campaign":
             manual_fields_for_row.update(MANUAL_FIELDS_DV360_ONLY)
             manual_fields_for_row.add("PACING")

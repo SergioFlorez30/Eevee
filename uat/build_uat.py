@@ -7,6 +7,7 @@ Result / Real Result / Test Result, and per-category scores.
 Usage:  python uat/build_uat.py
 """
 import csv
+import sys
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -18,6 +19,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 UAT_DIR = Path(__file__).resolve().parent
 DATA_DIR = UAT_DIR / "test-data"
 FIXTURES = UAT_DIR.parent / "tests" / "fixtures"
+sys.path.insert(0, str(UAT_DIR.parent))
+from config.mapping import COUNTRY_CODES
 
 KEY_USERS = [("PLANNER_TEST", "Planner"), ("TRADER_TEST", "Trader"), ("DIGITAL_EXPERT_TEST", "Digital Expert")]
 
@@ -58,10 +61,11 @@ SCENARIOS = [
      "Upload UAT_MX_03_casteo_valores.csv and check GENDER, AGE_RANGE and STAGE.",
      "M_25-44 -> GENDER = Male, AGE_RANGE = 25-44. P_18-65 -> People, 18-65. W_ -> Female. "
      "Media Objective -> STAGE (Consideration, Conversion)."),
-    (D, "1.7", "Country from File Name",
-     "Upload any test file whose name contains MX. Then upload a copy renamed without a country code (e.g. Plan_test.csv).",
-     "With MX in the name, COUNTRY = MX in every row. Without a country code, COUNTRY is empty and reported as an error "
-     "(Eevee must never assign a different country)."),
+    (D, "1.7", "Correct Market in the Output",
+     "Process countries/CO_2026.csv and countries/GT_2026.csv, representing Colombia and Guatemala. "
+     "Check the country in the preview and downloaded Excel.",
+     "Each output contains the correct market (CO or GT), not Mexico or another country. "
+     "Campaign data remains unchanged. Record both results in Comments."),
     (D, "1.8", "Fixed & Default Values",
      "Upload UAT_MX_01_tiktok_completo.csv and UAT_MX_04_dv360_completo.csv.",
      "BUY_TYPE = Auction, IRA_VERSION = V1, REGION = National, AUDIENCE = Demo, BROADCAST = NA in all rows. "
@@ -96,6 +100,10 @@ SCENARIOS = [
      "Upload UAT_MX_09_multiplataforma.csv (Pinterest, Google Ads, Amazon Prime).",
      "Each platform keeps its own hierarchy and IDs (P1, P1-1, S1, S1-1, A1, A1-1). No errors. "
      "BUDGET_TYPE, PACING, BID_VALUE and KPI_VALUE are not required for these platforms."),
+    (D, "1.17", "Market Cannot Be Identified",
+     "Process countries/export.csv and review the downloaded Excel.",
+     "COUNTRY remains empty rather than assigning an incorrect market. The missing country is reported "
+     "in the Errores sheet so the user can correct it. Download remains allowed."),
     (T, "2.1", "Tool Loading",
      "Open the Eevee URL in Edge or Chrome on the P&G network.",
      "The page loads and shows 'Motor Python listo' without errors. Write the loading time in Real Result."),
@@ -177,6 +185,12 @@ def write_test_data():
     }
     for target, source in copies.items():
         (DATA_DIR / target).write_bytes((FIXTURES / source).read_bytes())
+
+    country_dir = DATA_DIR / "countries"
+    country_dir.mkdir(exist_ok=True)
+    country_data = (FIXTURES / "tiktok_ids.csv").read_bytes()
+    for name in [f"{code}_2026.csv" for code in COUNTRY_CODES] + ["export.csv", "Campaign_GT.csv", "MX_CO.csv"]:
+        (country_dir / name).write_bytes(country_data)
 
     write("UAT_MX_02_campos_faltantes.csv", [
         row("Pinterest", "Hair Care -> CMP_1", **{"Target Audience": ""}),

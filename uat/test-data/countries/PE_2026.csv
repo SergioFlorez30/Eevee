@@ -1,0 +1,6 @@
+Platform,Line Item,Start Date,End Date,Brand,Sub Brand,Total Budget,Billable Budget,Target Audience,Media Objective,Initiative,Cost Type,Publisher,Allocated Coupons (Planned),OU Planning Level
+TikTok,Hair Care -> CMP_1,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_1 -> ADG1_a,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_2,01/01/2026,31/01/2026,Pantene,Pro,200,200,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_2 -> ADG1_a,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,
+TikTok,Hair Care -> CMP_2 -> ADG2_b,01/01/2026,31/01/2026,Pantene,Pro,100,100,W_18-34,Awareness,Launch,CPM,,0,

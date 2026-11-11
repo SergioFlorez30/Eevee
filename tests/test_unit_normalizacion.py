@@ -1,6 +1,7 @@
 """Unit tests: CM value normalization into ALFRED format."""
 import pytest
 
+from config.mapping import COUNTRY_CODES
 from scripts.transform import (
     clean_currency,
     extract_age_range,
@@ -51,6 +52,14 @@ class TestCleanCurrency:
 
 
 class TestCountry:
+    @pytest.mark.parametrize("code", COUNTRY_CODES)
+    @pytest.mark.parametrize("lowercase", [False, True], ids=["uppercase", "lowercase"])
+    def test_todos_los_paises_configurados(self, code, lowercase):
+        filename = f"{code}_2026.csv"
+        if lowercase:
+            filename = filename.lower()
+        assert extract_country_from_filename(filename) == code
+
     @pytest.mark.parametrize(
         "filename, expected",
         [("Plan_MX.csv", "MX"), ("plan_co_2026.csv", "CO"), ("", "")],
@@ -58,18 +67,51 @@ class TestCountry:
     def test_extrae_pais(self, filename, expected):
         assert extract_country_from_filename(filename) == expected
 
+    @pytest.mark.parametrize(
+        "filename, expected",
+        [
+            ("Campaign_GT.csv", "GT"),
+            ("export.csv", ""),
+            ("Plan_ZZ.csv", ""),
+            ("MX_CO.csv", ""),
+            ("CO_MX.csv", ""),
+            ("MX_mx.csv", "MX"),
+            ("Plan-MX-2026.csv", "MX"),
+            ("Plan CO 2026.csv", "CO"),
+            ("Plan.(BR).csv", "BR"),
+            ("PlanMX.csv", ""),
+            ("MX2026.csv", ""),
+            ("2026MX.csv", ""),
+            ("Plan.csv.MX", ""),
+            (r"C:\MX\GT_2026.csv", "GT"),
+            (r"C:\MX\export.csv", ""),
+            ("Campaign_GT", "GT"),
+        ],
+    )
+    def test_pais_completo_sin_ambiguedad(self, filename, expected):
+        assert extract_country_from_filename(filename) == expected
+
 
 class TestTargetAudience:
     @pytest.mark.parametrize(
         "audience, gender",
         [("W_18-34", "Female"), ("M_25-44", "Male"), ("H_25-44", "Male"),
-         ("HM_18-65", "Male"), ("P_18-65", "People"), ("X_18-34", ""), ("", "")],
+         ("HM_18-65", "People"), ("P_18-65", "People"), ("X_18-34", ""), ("", ""),
+         ("Female 18+", "Female"), (" female   18+ ", "Female"),
+         ("Male 25-44", "Male"), ("People 18+", "People"),
+         ("HM 18+", "People"), ("Female_18+", "Female"),
+         ("Unknown 18+", ""), (None, "")],
     )
     def test_gender(self, audience, gender):
         assert extract_gender(audience) == gender
 
     @pytest.mark.parametrize(
-        "audience, age", [("W_18-34", "18-34"), ("W", ""), ("", "")]
+        "audience, age", [
+            ("W_18-34", "18-34"), ("W", ""), ("", ""),
+            ("Female 18+", "18+"), (" female   18+ ", "18+"),
+            ("Male 25-44", "25-44"), ("People 18+", "18+"),
+            ("HM_18+", "18+"), ("Female_18+", "18+"), (None, ""),
+        ]
     )
     def test_age_range(self, audience, age):
         assert extract_age_range(audience) == age
