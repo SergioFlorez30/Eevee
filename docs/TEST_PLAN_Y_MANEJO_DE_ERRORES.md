@@ -158,10 +158,11 @@ Prioridad: **P0** = bloquea producción · **P1** = importante · **P2** = desea
 | `tests/test_flujo.py` | F-01 a F-11, U-18 a U-20: DV360, IO huérfanos, regresión de `0ee3b54`, IDs de TikTok, Meta duplicada, multiplataforma, casteo, obligatorios, `run()`, volumen de 5.000 filas |
 | `tests/test_excel.py` | X-01 a X-05: encabezados, valores, hoja Errores, dropdowns, sin NamedRange ni `INDIRECT` |
 | `tests/test_frequency.py` | Frequency numérico → texto `Nx7`; herencia bidireccional por consenso, conflictos, prioridad del valor propio, padres generados de DV360, deduplicación, valores inválidos y formato de celdas del Excel |
+| `tests/test_zero_duplicates.py` | Copias en cero frente a una única alternativa con datos; conserva conflictos, alternativas no cero distintas y ceros sin alternativa. Regresión de los cuatro Ad Groups de Herbal Essences con IDs consecutivos |
 | `tests/test_brechas_conocidas.py` | Hallazgos abiertos como `xfail` estrictos: cuando alguien corrige uno, la suite avisa para quitar la marca |
 | `tests/fixtures/*.csv` | Un CSV por escenario; agregar aquí los exports reales anonimizados |
 
-Resultado actual: **290 pruebas pasan y 9 casos están marcados como `xfail`**. Los casos de detección de país ya pasan, incluidas mayúsculas/minúsculas, límites de códigos, ambigüedad y verificación de COUNTRY vacío con errores en el Excel descargable. Se incluyen formatos de audiencia con códigos o etiquetas, HM = People y herencia bidireccional con consenso y conflictos multinivel. Frequency se transforma a texto `Nx7` con las mismas reglas de herencia.
+Resultado actual: **303 pruebas pasan y 9 casos están marcados como `xfail`**. Los casos de detección de país ya pasan, incluidas mayúsculas/minúsculas, límites de códigos, ambigüedad y verificación de COUNTRY vacío con errores en el Excel descargable. Se incluyen formatos de audiencia con códigos o etiquetas, HM = People y herencia bidireccional con consenso y conflictos multinivel. Frequency se transforma a texto `Nx7` con las mismas reglas de herencia.
 
 ### Cobertura de países y UAT
 

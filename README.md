@@ -289,6 +289,8 @@ pytest
 
 *Plan Level NO es necesario para DV360 (usa prefijo en Line Item)
 
+**Copias en cero:** antes de generar la jerarquía y los IDs, Eevee descarta una copia cuyos `Billable Budget`, `Total Budget` y `Frequency` sean los tres cero si existe una única combinación alternativa no negativa con algún valor distinto de cero. Deben coincidir plataforma, ruta jerárquica y todos los demás campos usados por Eevee. Las columnas ignoradas, como `Publisher ID`, no distinguen registros. Con otros conflictos o varias alternativas no cero distintas se conservan las filas; una fila en cero sin alternativa se conserva. Esta regla no suma presupuestos ni descarta filas solo por tener la misma taxonomía.
+
 ---
 
 #

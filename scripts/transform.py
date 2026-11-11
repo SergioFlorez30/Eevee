@@ -821,6 +821,33 @@ CM_FIELDS_USED = set(DIRECT_MAPPING.keys()) | {
 }
 
 
+def remove_zero_value_duplicates(processed_rows):
+    """Discard zero-only copies only when one unambiguous populated copy exists."""
+    numeric_fields = ("Billable Budget", "Total Budget", "Frequency")
+    other_fields = sorted(CM_FIELDS_USED - set(numeric_fields))
+    groups = {}
+    for index, row in processed_rows:
+        source = row["_effective_row"]
+        key = (row["PLATFORM"], tuple(row["_code_parts"])) + tuple(
+            source.get(field, "") for field in other_fields
+        )
+        values = tuple(source.get(field, "") for field in numeric_fields)
+        if not all(re.fullmatch(r"\d+(?:\.\d+)?", value) for value in values):
+            continue
+        numbers = tuple(Decimal(value) for value in values)
+        group = groups.setdefault(key, {"zeros": [], "populated": set()})
+        if all(value == 0 for value in numbers):
+            group["zeros"].append(index)
+        else:
+            group["populated"].add(numbers)
+    removed = {
+        index
+        for group in groups.values() if len(group["populated"]) == 1
+        for index in group["zeros"]
+    }
+    return [(index, row) for index, row in processed_rows if index not in removed]
+
+
 def transform(cm_rows, filename):
     """Transform CM rows to ALFRED format. Returns (output_rows[], errors[])."""
     output_rows = []
@@ -932,6 +959,7 @@ def transform(cm_rows, filename):
         processed_rows.append((idx, row_data))
     
     # ========== PASS 2: Inject implicit campaigns, then generate IDs ==========
+    processed_rows = remove_zero_value_duplicates(processed_rows)
     processed_rows = inject_implicit_campaigns(processed_rows)
     resolve_target_audience_upwards(processed_rows)
     resolve_inherited_field_upwards(processed_rows, "Frequency", _frequency_identity)
